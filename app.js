@@ -305,7 +305,7 @@
     // VIDEO cards
     if (state.category === "video" && results.length > 0) {
       var vlist = document.createElement("div");
-      vlist.className = "results-list";
+      vlist.className = "video-grid";
       results.forEach(function (r) {
         vlist.appendChild(createVideoCard(r));
       });
@@ -316,7 +316,7 @@
     // NEWS cards
     if (state.category === "news" && results.length > 0) {
       var nlist = document.createElement("div");
-      nlist.className = "results-list";
+      nlist.className = "news-list";
       results.forEach(function (r) {
         nlist.appendChild(createNewsCard(r));
       });
@@ -417,57 +417,14 @@
   }
 
   function createVideoCard(r) {
-    var card = document.createElement("article");
-    card.className = "result-card";
-
-    var inner = document.createElement("div");
-    inner.className = "result-inner";
-
-    var body = document.createElement("div");
-    body.className = "result-body";
-
-    // Domain
     var link = r.url || r.video_url || "#";
-    var domain = document.createElement("p");
-    domain.className = "result-domain";
-    domain.textContent = getDomain(link);
-    body.appendChild(domain);
+    var card = document.createElement("a");
+    card.className = "video-tile";
+    card.href = link;
+    card.target = "_blank";
+    card.rel = "noopener noreferrer";
 
-    // Title
-    var title = document.createElement("a");
-    title.className = "result-title";
-    title.href = link;
-    title.target = "_blank";
-    title.rel = "noopener noreferrer";
-    title.textContent = r.title || "Video";
-    body.appendChild(title);
-
-    // Meta line (duration/channel/date)
-    var metaBits = [];
-    if (r.duration) metaBits.push("⏱ " + r.duration);
-    if (r.author) metaBits.push(r.author);
-    if (r.channel) metaBits.push(r.channel);
-    if (r.publishedDate || r.published || r.date)
-      metaBits.push(String(r.publishedDate || r.published || r.date));
-
-    if (metaBits.length) {
-      var meta = document.createElement("p");
-      meta.className = "result-snippet";
-      meta.textContent = metaBits.join(" • ");
-      body.appendChild(meta);
-    }
-
-    // Snippet
-    if (r.content) {
-      var snippet = document.createElement("p");
-      snippet.className = "result-snippet";
-      snippet.textContent = r.content;
-      body.appendChild(snippet);
-    }
-
-    inner.appendChild(body);
-
-    // Thumbnail with play badge
+    // Thumbnail
     var thumb =
       r.thumbnail ||
       r.thumbnail_src ||
@@ -479,53 +436,82 @@
     thumb = normalizeMediaUrl(thumb);
 
     if (thumb) {
-      var wrap = document.createElement("div");
-      wrap.className = "media-thumb-wrap";
+      var thumbWrap = document.createElement("div");
+      thumbWrap.style.position = "relative";
 
       var img = document.createElement("img");
-      img.className = "result-thumb";
+      img.className = "video-thumb";
       img.src = thumb;
-      img.alt = "";
+      img.alt = r.title || "";
       img.loading = "lazy";
       img.referrerPolicy = "no-referrer";
       img.onerror = function () {
-        wrap.style.display = "none";
+        thumbWrap.style.display = "none";
       };
+      thumbWrap.appendChild(img);
 
-      var badge = document.createElement("div");
-      badge.className = "play-badge";
-      badge.textContent = "▶";
+      // Duration badge on thumbnail
+      var dur = r.duration || "";
+      if (dur) {
+        var durBadge = document.createElement("span");
+        durBadge.className = "video-duration-badge";
+        durBadge.textContent = dur;
+        thumbWrap.appendChild(durBadge);
+      }
 
-      wrap.appendChild(img);
-      wrap.appendChild(badge);
-      inner.appendChild(wrap);
+      card.appendChild(thumbWrap);
     }
 
-    card.appendChild(inner);
+    // Meta section
+    var meta = document.createElement("div");
+    meta.className = "video-meta";
+
+    var domain = document.createElement("p");
+    domain.className = "video-domain";
+    domain.textContent = r.source || getDomain(link);
+    meta.appendChild(domain);
+
+    var title = document.createElement("p");
+    title.className = "video-title";
+    title.textContent = r.title || "Video";
+    meta.appendChild(title);
+
+    // Info line (author/channel/date)
+    var infoBits = [];
+    if (r.author) infoBits.push(r.author);
+    if (r.channel) infoBits.push(r.channel);
+    if (r.publishedDate || r.published_date || r.published || r.date)
+      infoBits.push(String(r.publishedDate || r.published_date || r.published || r.date));
+
+    if (infoBits.length) {
+      var info = document.createElement("p");
+      info.className = "video-domain";
+      info.textContent = infoBits.join(" • ");
+      meta.appendChild(info);
+    }
+
+    card.appendChild(meta);
     return card;
   }
 
   function createNewsCard(r) {
     var card = document.createElement("article");
-    card.className = "result-card";
-
-    var inner = document.createElement("div");
-    inner.className = "result-inner";
+    card.className = "news-card";
 
     var body = document.createElement("div");
-    body.className = "result-body";
+    body.className = "news-body";
 
     var link = r.url || "#";
     var source = r.source || getDomain(link);
-    var date = r.publishedDate || r.published || r.date || "";
+    var date = r.publishedDate || r.published_date || r.published || r.date || "";
 
     var topLine = document.createElement("p");
-    topLine.className = "result-domain";
+    topLine.className = "news-source";
     topLine.textContent = date ? source + " • " + String(date) : source;
     body.appendChild(topLine);
 
     var title = document.createElement("a");
-    title.className = "result-title";
+    title.className = "news-title";
     title.href = link;
     title.target = "_blank";
     title.rel = "noopener noreferrer";
@@ -535,12 +521,12 @@
     var snippetText = r.content || r.snippet || r.description || "";
     if (snippetText) {
       var snippet = document.createElement("p");
-      snippet.className = "result-snippet";
+      snippet.className = "news-snippet";
       snippet.textContent = snippetText;
       body.appendChild(snippet);
     }
 
-    inner.appendChild(body);
+    card.appendChild(body);
 
     // optional image
     var imgUrl =
@@ -555,7 +541,7 @@
 
     if (imgUrl) {
       var img = document.createElement("img");
-      img.className = "result-thumb";
+      img.className = "news-thumb";
       img.src = imgUrl;
       img.alt = "";
       img.loading = "lazy";
@@ -563,10 +549,9 @@
       img.onerror = function () {
         img.style.display = "none";
       };
-      inner.appendChild(img);
+      card.appendChild(img);
     }
 
-    card.appendChild(inner);
     return card;
   }
 
@@ -704,7 +689,7 @@
       }
 
       if (state.category !== "all") {
-        $target.innerHTML = '<p class="ai-idle">AI summary is only available in All.</p>';
+        $target.innerHTML = '<p class="ai-idle">AI summary available only for All category</p>';
         return;
       }
 
