@@ -714,21 +714,33 @@
   });
 
   /* ===== OTP functionality ===== */
+  function generateSecureOTP() {
+    // Use cryptographically secure random number generation
+    var array = new Uint32Array(1);
+    window.crypto.getRandomValues(array);
+    // Generate 6-digit OTP
+    var otp = (array[0] % 900000 + 100000).toString();
+    return otp;
+  }
+
   document.getElementById("btn-send-otp").addEventListener("click", function () {
     var email = document.getElementById("signin-email").value.trim();
-    if (!email || !email.includes("@")) {
+    var emailInput = document.getElementById("signin-email");
+    
+    // Validate email using browser's built-in validation
+    if (!emailInput.checkValidity() || !email) {
       alert("Please enter a valid email address");
       return;
     }
     
     // Simulate sending OTP (in real app, this would call an API)
     otpData.email = email;
-    otpData.otp = Math.floor(100000 + Math.random() * 900000).toString();
+    otpData.otp = generateSecureOTP();
     otpData.sent = true;
     
-    // For demo purposes, show the OTP in console
+    // For demo purposes, show the OTP in console only
     console.log("OTP sent to " + email + ": " + otpData.otp);
-    alert("OTP sent to " + email + ": " + otpData.otp + "\n(In production, this would be sent via email)");
+    alert("OTP sent to " + email + "\n(In production, this would be sent via email)\n\nFor demo: Check browser console for OTP");
     
     // Show OTP input section
     document.getElementById("otp-section").style.display = "block";
@@ -742,10 +754,10 @@
   document.getElementById("btn-resend-otp").addEventListener("click", function () {
     if (!otpData.email) return;
     
-    // Regenerate OTP
-    otpData.otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // Regenerate OTP using secure method
+    otpData.otp = generateSecureOTP();
     console.log("OTP resent to " + otpData.email + ": " + otpData.otp);
-    alert("New OTP sent to " + otpData.email + ": " + otpData.otp + "\n(In production, this would be sent via email)");
+    alert("New OTP sent to " + otpData.email + "\n(In production, this would be sent via email)\n\nFor demo: Check browser console for OTP");
     
     // Clear OTP inputs
     var otpDigits = document.querySelectorAll(".otp-digit");
@@ -774,9 +786,26 @@
       localStorage.setItem("fera-user-email", otpData.email);
       localStorage.setItem("fera-user-logged-in", "true");
       
-      // Update UI
+      // Update UI safely using DOM methods to prevent XSS
       var signinBtn = document.getElementById("btn-signin");
-      signinBtn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>' + otpData.email.split("@")[0];
+      signinBtn.innerHTML = "";
+      
+      var icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      icon.setAttribute("width", "16");
+      icon.setAttribute("height", "16");
+      icon.setAttribute("fill", "none");
+      icon.setAttribute("stroke", "currentColor");
+      icon.setAttribute("viewBox", "0 0 24 24");
+      var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("stroke-linecap", "round");
+      path.setAttribute("stroke-linejoin", "round");
+      path.setAttribute("stroke-width", "1.5");
+      path.setAttribute("d", "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z");
+      icon.appendChild(path);
+      signinBtn.appendChild(icon);
+      
+      var username = document.createTextNode(otpData.email.split("@")[0]);
+      signinBtn.appendChild(username);
       
       // Close modal after 2 seconds
       setTimeout(function() {
@@ -834,7 +863,24 @@
     var userEmail = localStorage.getItem("fera-user-email");
     if (isLoggedIn && userEmail) {
       var signinBtn = document.getElementById("btn-signin");
-      signinBtn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>' + userEmail.split("@")[0];
+      signinBtn.innerHTML = "";
+      
+      var icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      icon.setAttribute("width", "16");
+      icon.setAttribute("height", "16");
+      icon.setAttribute("fill", "none");
+      icon.setAttribute("stroke", "currentColor");
+      icon.setAttribute("viewBox", "0 0 24 24");
+      var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("stroke-linecap", "round");
+      path.setAttribute("stroke-linejoin", "round");
+      path.setAttribute("stroke-width", "1.5");
+      path.setAttribute("d", "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z");
+      icon.appendChild(path);
+      signinBtn.appendChild(icon);
+      
+      var username = document.createTextNode(userEmail.split("@")[0]);
+      signinBtn.appendChild(username);
     }
   }
   checkLoginStatus();
