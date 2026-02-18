@@ -279,6 +279,13 @@ body.dark .category-btn:hover { background: #374151; color: #d1d5db; }
 body.dark .category-btn.active { background: #1e3a8a; color: #60a5fa; border-color: #3b82f6; }
 .category-btn svg { width: 16px; height: 16px; }
 
+/* ===== SafeSearch toggle ===== */
+.safesearch-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 12px; }
+.safesearch-label { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: #6b7280; }
+body.dark .safesearch-label { color: #9ca3af; }
+.safesearch-label svg { color: #2563eb; }
+body.dark .safesearch-label svg { color: #60a5fa; }
+
 /* ===== OTP Section ===== */
 .otp-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid #f3f4f6; }
 body.dark .otp-section { border-top-color: #374151; }
