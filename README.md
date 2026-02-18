@@ -6,7 +6,9 @@ Built with plain **HTML, CSS, and JavaScript** — no build tools, no frameworks
 ## Features
 
 - **Privacy-first** — No personal tracking, all history stored locally (opt-in)
-- **AI Summaries** — Get AI-generated summaries alongside search results
+- **User Authentication** — Sign up/Sign in with email and password using Supabase
+- **AI Summaries** — Get AI-generated summaries for "All" category searches only
+- **Category Filtering** — Search across All, Video, Photo, and News categories
 - **Dark mode** — System default with manual toggle
 - **Keyboard shortcuts** — Press `/` to focus search
 - **Responsive** — Desktop two-panel layout, mobile with collapsible AI drawer
@@ -40,8 +42,21 @@ npx serve .
 
 Uses the Fera Search proxy backend:
 
-- `GET /search?q=QUERY` — Search results (fast)
-- `GET /summarize?q=QUERY` — AI summary (slower, non-blocking)
+- `GET /search?q=QUERY&format=json&safesearch=1&categories=CATEGORY` — Search results (fast)
+  - `categories` can be: `images`, `videos`, `news`, or omitted for general search
+- `GET /summarize?q=QUERY` — AI summary (slower, non-blocking, only for "All" category)
+
+## Authentication
+
+The app supports user authentication via Supabase:
+
+- **Sign Up**: Create account with email and password (email verification required)
+- **Sign In**: Login with existing credentials
+- **Session Management**: Persists across page reloads
+
+See [SUPABASE_SETUP.md](SUPABASE_SETUP.md) for configuration instructions.
+
+**Note**: Authentication is optional. All search functionality works without an account. Sign in only to sync history across devices.
 
 ## Deploy
 

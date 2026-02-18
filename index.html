@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234f46e5'/><text x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-family='Inter,sans-serif' font-weight='700' font-size='18'>F</text></svg>" />
   <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <!-- Header -->
@@ -143,7 +144,7 @@
   <div id="signin-backdrop" class="modal-backdrop" style="display:none">
     <div class="modal-card" onclick="event.stopPropagation()">
       <div class="modal-header">
-        <h2>Sign in</h2>
+        <h2 id="auth-modal-title">Sign in</h2>
         <button id="btn-signin-close" class="icon-btn" aria-label="Close">
           <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
@@ -151,7 +152,9 @@
       <p class="text-muted text-sm" style="margin-bottom:16px">Sign in to sync your search history across devices. Searching works fully without an account.</p>
       <div class="signin-form">
         <input id="signin-email" type="email" placeholder="your@email.com" class="signin-input" />
-        <button id="btn-send-otp" type="button" class="btn-primary">Send OTP</button>
+        <input id="signin-password" type="password" placeholder="Password (min 6 characters)" class="signin-input" />
+        <button id="btn-signin-submit" type="button" class="btn-primary">Sign In</button>
+        <button id="btn-signup-submit" type="button" class="btn-secondary">Sign Up</button>
       </div>
       <div id="otp-section" class="otp-section" style="display:none">
         <p class="text-muted text-sm" style="margin-bottom:12px;text-align:center">Enter the 6-digit OTP sent to your email</p>
@@ -172,7 +175,7 @@
         </div>
         <p class="success-message">Successfully signed in!</p>
       </div>
-      <p id="signin-info" class="text-muted text-xs" style="text-align:center;margin-top:12px">We'll send you a one-time password to verify your email.</p>
+      <p id="signin-info" class="text-muted text-xs" style="text-align:center;margin-top:12px">Enter your email and password to continue.</p>
     </div>
   </div>
 
