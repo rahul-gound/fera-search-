@@ -3,6 +3,12 @@
 
   /* ===== Config ===== */
   var PROXY_BASE = "https://himanshu-711-fera-search-proxy.hf.space";
+  var VALID_CATEGORIES = ["video", "photo", "news"];
+  var CATEGORY_API_MAP = {
+    "video": "videos",
+    "photo": "images",
+    "news": "news"
+  };
 
   /* ===== State ===== */
   var state = {
@@ -87,12 +93,7 @@
     
     // Map category to categories parameter for API
     if (category && category !== "all") {
-      var categoryMap = {
-        "video": "videos",
-        "photo": "images",
-        "news": "news"
-      };
-      var apiCategory = categoryMap[category] || category;
+      var apiCategory = CATEGORY_API_MAP[category] || category;
       url += "&categories=" + encodeURIComponent(apiCategory);
     }
     
@@ -840,7 +841,7 @@
   var params = new URLSearchParams(window.location.search);
   var initialQ = params.get("q");
   var initialCategory = params.get("category");
-  if (initialCategory && ["video", "photo", "news"].indexOf(initialCategory) !== -1) {
+  if (initialCategory && VALID_CATEGORIES.indexOf(initialCategory) !== -1) {
     state.category = initialCategory;
     // Update category button active state
     categoryBtns.forEach(function(b) {
