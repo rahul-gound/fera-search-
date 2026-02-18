@@ -126,7 +126,13 @@
       signal: signal,
     }).then(function (res) {
       if (!res.ok) throw new Error("Summarize failed (" + res.status + ")");
-      return res.json();
+      return res.text().then(function (text) {
+        try {
+          return JSON.parse(text);
+        } catch (_) {
+          return { summary: text };
+        }
+      });
     });
   }
 
@@ -711,9 +717,13 @@
         return;
       }
 
-      var data = state.aiData && state.aiData.data ? state.aiData.data : {};
+      var nested = state.aiData && state.aiData.data ? state.aiData.data : {};
+      var top = state.aiData || {};
       var summary =
-        data.summary || data.answer || data.text || data.response || data.content || "";
+        nested.summary || nested.answer || nested.text || nested.response || nested.content ||
+        top.summary || top.answer || top.text || top.response || top.content || "";
+      if (typeof summary !== "string") summary = String(summary);
+      summary = summary.trim();
       if (!summary) {
         $target.innerHTML = '<p class="ai-idle">No AI summary available.</p>';
         return;
