@@ -751,7 +751,10 @@
       var backendMessage = top.message || ai.message || nested.message || "";
       if (backendError || backendMessage) {
         var errDiv = document.createElement("div");
-        errDiv.innerHTML = '<p class="ai-error">' + escapeHtml(backendError || backendMessage) + "</p>";
+        var errP = document.createElement("p");
+        errP.className = "ai-error";
+        errP.textContent = backendError || backendMessage;
+        errDiv.appendChild(errP);
         var retry = document.createElement("button");
         retry.className = "retry-link";
         retry.textContent = "Retry";
@@ -776,7 +779,7 @@
       // If summary is an array, join non-empty items; fall back to key_points if empty
       var summary = "";
       if (Array.isArray(rawSummary)) {
-        summary = rawSummary.filter(function (s) { return typeof s === "string" && s.trim(); })
+        summary = rawSummary.filter(function (s) { return typeof s === "string" && s.trim().length > 0; })
                             .join("\n");
       } else {
         summary = String(rawSummary).trim();
