@@ -5,6 +5,7 @@
   var PROXY_BASE = "https://himanshu-711-fera-search-proxy.hf.space";
   var VALID_CATEGORIES = ["video", "photo", "news"];
   var CATEGORY_API_MAP = {
+    "all": "general",
     "video": "videos",
     "photo": "images",
     "news": "news"
@@ -90,12 +91,8 @@
   function fetchSearch(query, category, signal) {
     var url = PROXY_BASE + "/search?q=" + encodeURIComponent(query);
     url += "&format=json&safesearch=" + (safeSearch ? "1" : "0");
-    
-    // Map category to categories parameter for API
-    if (category && category !== "all") {
-      var apiCategory = CATEGORY_API_MAP[category] || category;
-      url += "&categories=" + encodeURIComponent(apiCategory);
-    }
+    var apiCategory = CATEGORY_API_MAP[category] || "general";
+    url += "&categories=" + encodeURIComponent(apiCategory);
     
     return fetch(url, { signal: signal })
       .then(function (res) {
