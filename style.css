@@ -268,3 +268,32 @@ body.dark .signin-input { border-color: #374151; background: #1f2937; }
 .btn-primary { width: 100%; padding: 10px; border-radius: 12px; background: #2563eb; color: #fff; font-size: 14px; font-weight: 500; transition: background 0.15s; }
 .btn-primary:hover { background: #1d4ed8; }
 .btn-primary:focus-visible { outline: 2px solid rgba(59,130,246,0.5); outline-offset: 2px; }
+
+/* ===== Category filters ===== */
+.category-filters { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+.category-btn { display: flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 12px; background: #f9fafb; color: #6b7280; font-size: 14px; font-weight: 500; transition: all 0.15s; border: 1px solid transparent; }
+body.dark .category-btn { background: #1f2937; color: #9ca3af; }
+.category-btn:hover { background: #f3f4f6; color: #374151; }
+body.dark .category-btn:hover { background: #374151; color: #d1d5db; }
+.category-btn.active { background: #eff6ff; color: #2563eb; border-color: #2563eb; }
+body.dark .category-btn.active { background: #1e3a8a; color: #60a5fa; border-color: #3b82f6; }
+.category-btn svg { width: 16px; height: 16px; }
+
+/* ===== OTP Section ===== */
+.otp-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid #f3f4f6; }
+body.dark .otp-section { border-top-color: #374151; }
+.otp-input-wrapper { display: flex; gap: 8px; justify-content: center; margin: 0 auto; max-width: 280px; }
+.otp-digit { width: 40px; height: 48px; text-align: center; font-size: 20px; font-weight: 600; border-radius: 8px; border: 2px solid #e5e7eb; background: #fff; transition: border-color 0.2s, box-shadow 0.2s; }
+body.dark .otp-digit { border-color: #374151; background: #1f2937; color: #f3f4f6; }
+.otp-digit:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+.btn-secondary { width: 100%; padding: 10px; border-radius: 12px; background: transparent; color: #6b7280; font-size: 14px; font-weight: 500; border: 1px solid #e5e7eb; transition: all 0.15s; }
+body.dark .btn-secondary { color: #9ca3af; border-color: #374151; }
+.btn-secondary:hover { background: #f9fafb; color: #374151; }
+body.dark .btn-secondary:hover { background: #1f2937; color: #d1d5db; }
+
+/* ===== Success Section ===== */
+.success-section { text-align: center; padding: 20px 0; }
+.success-icon { width: 80px; height: 80px; margin: 0 auto 16px; color: #10b981; }
+body.dark .success-icon { color: #34d399; }
+.success-message { font-size: 16px; font-weight: 600; color: #10b981; }
+body.dark .success-message { color: #34d399; }
