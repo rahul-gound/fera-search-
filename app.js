@@ -1,3 +1,4 @@
+
 (function () {
   "use strict";
 
@@ -32,6 +33,7 @@
     aiLoading: false,
     aiError: null,
   };
+
   var searchAbort = null;
   var aiAbort = null;
   var historyEnabled = localStorage.getItem("fera-history") === "on";
@@ -101,7 +103,7 @@
 
   /* ===== API ===== */
   function fetchSearch(query, category, signal) {
-    // ✅ EXACT format your proxy expects (NO extra params):
+    // ✅ EXACT format your proxy expects:
     // https://.../search?q=hi&safesearch=1&categories=videos
     var apiCategory = CATEGORY_API_MAP[category] || "general";
 
@@ -233,6 +235,7 @@
 
   /* ===== Render: Results ===== */
   function renderResults() {
+    // Clear dynamic content (keep welcome)
     var children = Array.from($resultsPanel.children);
     children.forEach(function (c) {
       if (c.id !== "welcome") $resultsPanel.removeChild(c);
@@ -248,20 +251,21 @@
     var results =
       (state.searchData && state.searchData.data && state.searchData.data.results) || [];
     var infoboxes =
-      (state.searchData && state.searchData.data && state.searchData.data.infoboxes) ||
-      [];
+      (state.searchData && state.searchData.data && state.searchData.data.infoboxes) || [];
     var suggestions =
-      (state.searchData && state.searchData.data && state.searchData.data.suggestions) ||
-      [];
+      (state.searchData && state.searchData.data && state.searchData.data.suggestions) || [];
 
+    // Infoboxes
     infoboxes.forEach(function (ib) {
       $resultsPanel.appendChild(createInfobox(ib));
     });
 
+    // Suggestions
     if (suggestions.length > 0) {
       $resultsPanel.appendChild(createSuggestions(suggestions));
     }
 
+    // Loading skeletons
     if (state.searchLoading) {
       var skList = document.createElement("div");
       skList.className = "skeleton-list";
@@ -270,6 +274,7 @@
       return;
     }
 
+    // Error
     if (state.searchError) {
       var errDiv = document.createElement("div");
       errDiv.className = "error-card";
@@ -285,6 +290,7 @@
       return;
     }
 
+    // PHOTO grid
     if (state.category === "photo" && results.length > 0) {
       var grid = document.createElement("div");
       grid.className = "image-grid";
@@ -295,6 +301,29 @@
       return;
     }
 
+    // VIDEO cards
+    if (state.category === "video" && results.length > 0) {
+      var vlist = document.createElement("div");
+      vlist.className = "results-list";
+      results.forEach(function (r) {
+        vlist.appendChild(createVideoCard(r));
+      });
+      $resultsPanel.appendChild(vlist);
+      return;
+    }
+
+    // NEWS cards
+    if (state.category === "news" && results.length > 0) {
+      var nlist = document.createElement("div");
+      nlist.className = "results-list";
+      results.forEach(function (r) {
+        nlist.appendChild(createNewsCard(r));
+      });
+      $resultsPanel.appendChild(nlist);
+      return;
+    }
+
+    // Default (All/general): normal cards
     if (results.length > 0) {
       var list = document.createElement("div");
       list.className = "results-list";
@@ -305,15 +334,16 @@
       return;
     }
 
+    // Empty
     if (state.searchData) {
       var empty = document.createElement("div");
       empty.className = "empty-card";
-      empty.innerHTML =
-        '<p>No results found for "' + escapeHtml(state.query) + '"</p>';
+      empty.innerHTML = '<p>No results found for "' + escapeHtml(state.query) + '"</p>';
       $resultsPanel.appendChild(empty);
     }
   }
 
+  /* ===== Cards ===== */
   function createResultCard(r) {
     var card = document.createElement("article");
     card.className = "result-card";
@@ -326,12 +356,12 @@
 
     var domain = document.createElement("p");
     domain.className = "result-domain";
-    domain.textContent = getDomain(r.url);
+    domain.textContent = getDomain(r.url || "");
     body.appendChild(domain);
 
     var title = document.createElement("a");
     title.className = "result-title";
-    title.href = r.url;
+    title.href = r.url || "#";
     title.target = "_blank";
     title.rel = "noopener noreferrer";
     title.textContent = r.title || "Untitled";
@@ -385,14 +415,169 @@
     return card;
   }
 
+  function createVideoCard(r) {
+    var card = document.createElement("article");
+    card.className = "result-card";
+
+    var inner = document.createElement("div");
+    inner.className = "result-inner";
+
+    var body = document.createElement("div");
+    body.className = "result-body";
+
+    // Domain
+    var link = r.url || r.video_url || "#";
+    var domain = document.createElement("p");
+    domain.className = "result-domain";
+    domain.textContent = getDomain(link);
+    body.appendChild(domain);
+
+    // Title
+    var title = document.createElement("a");
+    title.className = "result-title";
+    title.href = link;
+    title.target = "_blank";
+    title.rel = "noopener noreferrer";
+    title.textContent = r.title || "Video";
+    body.appendChild(title);
+
+    // Meta line (duration/channel/date)
+    var metaBits = [];
+    if (r.duration) metaBits.push("⏱ " + r.duration);
+    if (r.author) metaBits.push(r.author);
+    if (r.channel) metaBits.push(r.channel);
+    if (r.publishedDate || r.published || r.date)
+      metaBits.push(String(r.publishedDate || r.published || r.date));
+
+    if (metaBits.length) {
+      var meta = document.createElement("p");
+      meta.className = "result-snippet";
+      meta.textContent = metaBits.join(" • ");
+      body.appendChild(meta);
+    }
+
+    // Snippet
+    if (r.content) {
+      var snippet = document.createElement("p");
+      snippet.className = "result-snippet";
+      snippet.textContent = r.content;
+      body.appendChild(snippet);
+    }
+
+    inner.appendChild(body);
+
+    // Thumbnail with play badge
+    var thumb =
+      r.thumbnail ||
+      r.thumbnail_src ||
+      r.img_src ||
+      r.image ||
+      r.preview ||
+      null;
+
+    thumb = normalizeMediaUrl(thumb);
+
+    if (thumb) {
+      var wrap = document.createElement("div");
+      wrap.className = "media-thumb-wrap";
+
+      var img = document.createElement("img");
+      img.className = "result-thumb";
+      img.src = thumb;
+      img.alt = "";
+      img.loading = "lazy";
+      img.referrerPolicy = "no-referrer";
+      img.onerror = function () {
+        wrap.style.display = "none";
+      };
+
+      var badge = document.createElement("div");
+      badge.className = "play-badge";
+      badge.textContent = "▶";
+
+      wrap.appendChild(img);
+      wrap.appendChild(badge);
+      inner.appendChild(wrap);
+    }
+
+    card.appendChild(inner);
+    return card;
+  }
+
+  function createNewsCard(r) {
+    var card = document.createElement("article");
+    card.className = "result-card";
+
+    var inner = document.createElement("div");
+    inner.className = "result-inner";
+
+    var body = document.createElement("div");
+    body.className = "result-body";
+
+    var link = r.url || "#";
+    var source = r.source || getDomain(link);
+    var date = r.publishedDate || r.published || r.date || "";
+
+    var topLine = document.createElement("p");
+    topLine.className = "result-domain";
+    topLine.textContent = date ? source + " • " + String(date) : source;
+    body.appendChild(topLine);
+
+    var title = document.createElement("a");
+    title.className = "result-title";
+    title.href = link;
+    title.target = "_blank";
+    title.rel = "noopener noreferrer";
+    title.textContent = r.title || "News";
+    body.appendChild(title);
+
+    var snippetText = r.content || r.snippet || r.description || "";
+    if (snippetText) {
+      var snippet = document.createElement("p");
+      snippet.className = "result-snippet";
+      snippet.textContent = snippetText;
+      body.appendChild(snippet);
+    }
+
+    inner.appendChild(body);
+
+    // optional image
+    var imgUrl =
+      r.thumbnail ||
+      r.thumbnail_src ||
+      r.img_src ||
+      r.image ||
+      r.media ||
+      null;
+
+    imgUrl = normalizeMediaUrl(imgUrl);
+
+    if (imgUrl) {
+      var img = document.createElement("img");
+      img.className = "result-thumb";
+      img.src = imgUrl;
+      img.alt = "";
+      img.loading = "lazy";
+      img.referrerPolicy = "no-referrer";
+      img.onerror = function () {
+        img.style.display = "none";
+      };
+      inner.appendChild(img);
+    }
+
+    card.appendChild(inner);
+    return card;
+  }
+
   function createImageTile(r) {
     var a = document.createElement("a");
     a.className = "image-tile";
 
-    var full = normalizeMediaUrl(r.img_src || r.url);
-    var thumb = normalizeMediaUrl(r.thumbnail_src || r.thumbnail || r.img_src);
+    // Many engines use img_src for full image, url sometimes is page url
+    var full = normalizeMediaUrl(r.img_src || r.image || r.url);
+    var thumb = normalizeMediaUrl(r.thumbnail_src || r.thumbnail || r.img_src || r.image);
 
-    a.href = full || r.url;
+    a.href = full || r.url || "#";
     a.target = "_blank";
     a.rel = "noopener noreferrer";
 
@@ -481,340 +666,4 @@
 
   function createSkeletonCard() {
     var card = document.createElement("div");
-    card.className = "skeleton-card";
-    card.innerHTML =
-      '<div class="skeleton sk" style="height:12px;width:128px"></div>' +
-      '<div class="skeleton sk" style="height:20px;width:75%"></div>' +
-      '<div class="skeleton sk" style="height:12px;width:100%"></div>' +
-      '<div class="skeleton sk" style="height:12px;width:83%"></div>' +
-      '<div class="sk-row"><div class="skeleton" style="height:20px;width:64px"></div><div class="skeleton" style="height:20px;width:56px"></div></div>';
-    return card;
-  }
-
-  /* ===== Render: AI ===== */
-  function renderAI() {
-    var html = buildAIHTML();
-    $aiDesktop.innerHTML = html;
-    $aiMobile.innerHTML = html;
-    wireAIButtons($aiDesktop);
-    wireAIButtons($aiMobile);
-    $aiPulse.style.display = state.aiLoading ? "" : "none";
-  }
-
-  function buildAIHTML() {
-    var hasQuery = state.query.length > 0;
-    if (!hasQuery) return '<p class="ai-idle">Search to see an AI summary</p>';
-
-    if (state.category !== "all") {
-      return '<p class="ai-idle">AI summaries are only available for "All" category searches</p>';
-    }
-
-    if (state.aiLoading) {
-      return '<div class="ai-thinking"><div class="dot"></div><span>Thinking…</span></div>';
-    }
-
-    if (state.aiError) {
-      return '<p class="ai-error">AI not available</p><button class="retry-link" data-ai-retry>Retry</button>';
-    }
-
-    if (state.aiData && state.aiData.ai) {
-      var ai = state.aiData.ai;
-      var h = "";
-      h += '<div class="ai-summary-text">' + escapeHtml(ai.summary || "") + "</div>";
-      h += '<p class="ai-privacy">Generated from top results (no personal tracking)</p>';
-      return h;
-    }
-
-    return '<p class="ai-idle">Search to see an AI summary</p>';
-  }
-
-  function wireAIButtons(container) {
-    var retryBtn = container.querySelector("[data-ai-retry]");
-    if (retryBtn) retryBtn.addEventListener("click", retryAI);
-
-    var followups = container.querySelectorAll("[data-followup]");
-    followups.forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        var q = btn.getAttribute("data-followup");
-        closeAiDrawer();
-        doSearch(q);
-      });
-    });
-  }
-
-  /* ===== Mobile AI drawer ===== */
-  function openAiDrawer() {
-    aiDrawerOpen = true;
-    $aiDrawerBackdrop.style.display = "";
-    $aiDrawer.classList.add("open");
-  }
-  function closeAiDrawer() {
-    aiDrawerOpen = false;
-    $aiDrawerBackdrop.style.display = "none";
-    $aiDrawer.classList.remove("open");
-  }
-  document.getElementById("btn-mobile-ai").addEventListener("click", function () {
-    if (aiDrawerOpen) closeAiDrawer();
-    else openAiDrawer();
-  });
-  $aiDrawerBackdrop.addEventListener("click", closeAiDrawer);
-
-  /* ===== History (IndexedDB) ===== */
-  var DB_NAME = "fera-search";
-  var STORE = "history";
-  var DB_VERSION = 1;
-  var MAX_ITEMS = 20;
-
-  function openHistoryDB() {
-    return new Promise(function (resolve, reject) {
-      var req = indexedDB.open(DB_NAME, DB_VERSION);
-      req.onupgradeneeded = function (e) {
-        var db = e.target.result;
-        if (!db.objectStoreNames.contains(STORE)) {
-          var store = db.createObjectStore(STORE, { keyPath: "id", autoIncrement: true });
-          store.createIndex("time", "time");
-        }
-      };
-      req.onsuccess = function (e) {
-        resolve(e.target.result);
-      };
-      req.onerror = function (e) {
-        reject(e.target.error);
-      };
-    });
-  }
-
-  function addHistoryItem(item) {
-    return openHistoryDB().then(function (db) {
-      return new Promise(function (resolve, reject) {
-        var tx = db.transaction(STORE, "readwrite");
-        tx.objectStore(STORE).add(item);
-        tx.oncomplete = resolve;
-        tx.onerror = function () {
-          reject(tx.error);
-        };
-      });
-    });
-  }
-
-  function getHistory() {
-    return openHistoryDB().then(function (db) {
-      return new Promise(function (resolve, reject) {
-        var tx = db.transaction(STORE, "readonly");
-        var idx = tx.objectStore(STORE).index("time");
-        var all = [];
-        idx.openCursor().onsuccess = function (e) {
-          var cursor = e.target.result;
-          if (cursor) {
-            all.push(cursor.value);
-            cursor.continue();
-          } else {
-            resolve(all.reverse());
-          }
-        };
-        tx.onerror = function () {
-          reject(tx.error);
-        };
-      });
-    });
-  }
-
-  function clearHistory() {
-    return openHistoryDB().then(function (db) {
-      return new Promise(function (resolve, reject) {
-        var tx = db.transaction(STORE, "readwrite");
-        tx.objectStore(STORE).clear();
-        tx.oncomplete = resolve;
-        tx.onerror = function () {
-          reject(tx.error);
-        };
-      });
-    });
-  }
-
-  /* ===== History drawer UI ===== */
-  function openHistoryDrawer() {
-    $historyBackdrop.style.display = "";
-    $historyDrawer.classList.add("open");
-    renderHistoryContent();
-  }
-  function closeHistoryDrawer() {
-    $historyBackdrop.style.display = "none";
-    $historyDrawer.classList.remove("open");
-  }
-  function renderHistoryContent() {
-    if (!historyEnabled) {
-      $historyContent.innerHTML =
-        '<p class="text-muted text-xs">History is off. No searches are stored locally.</p>';
-      return;
-    }
-    getHistory().then(function (items) {
-      if (items.length === 0) {
-        $historyContent.innerHTML = '<p class="text-muted text-sm">No history yet.</p>';
-        return;
-      }
-      var h =
-        '<button class="history-clear" id="btn-clear-history">Clear all</button><ul class="history-list">';
-      items.forEach(function (item) {
-        h +=
-          '<li><button class="history-item" data-hquery="' +
-          escapeAttr(item.query) +
-          '">' +
-          '<span class="hq">' +
-          escapeHtml(item.query) +
-          "</span>" +
-          '<span class="ht">' +
-          new Date(item.time).toLocaleString() +
-          "</span>" +
-          "</button></li>";
-      });
-      h += "</ul>";
-      $historyContent.innerHTML = h;
-
-      document.getElementById("btn-clear-history").addEventListener("click", function () {
-        clearHistory().then(renderHistoryContent);
-      });
-      $historyContent.querySelectorAll("[data-hquery]").forEach(function (btn) {
-        btn.addEventListener("click", function () {
-          doSearch(btn.getAttribute("data-hquery"));
-          closeHistoryDrawer();
-        });
-      });
-    });
-  }
-
-  function updateHistoryToggle() {
-    if (historyEnabled) {
-      $historyToggleBtn.classList.add("on");
-      $historyToggleBtn.setAttribute("aria-checked", "true");
-    } else {
-      $historyToggleBtn.classList.remove("on");
-      $historyToggleBtn.setAttribute("aria-checked", "false");
-    }
-  }
-  updateHistoryToggle();
-
-  $historyToggleBtn.addEventListener("click", function () {
-    historyEnabled = !historyEnabled;
-    localStorage.setItem("fera-history", historyEnabled ? "on" : "off");
-    updateHistoryToggle();
-    renderHistoryContent();
-  });
-
-  document.getElementById("btn-history").addEventListener("click", openHistoryDrawer);
-  document.getElementById("btn-history-close").addEventListener("click", closeHistoryDrawer);
-  $historyBackdrop.addEventListener("click", closeHistoryDrawer);
-
-  /* ===== SafeSearch toggle ===== */
-  function updateSafeSearchToggle() {
-    if (safeSearch) {
-      $safeSearchToggle.classList.add("on");
-      $safeSearchToggle.setAttribute("aria-checked", "true");
-    } else {
-      $safeSearchToggle.classList.remove("on");
-      $safeSearchToggle.setAttribute("aria-checked", "false");
-    }
-  }
-  updateSafeSearchToggle();
-
-  $safeSearchToggle.addEventListener("click", function () {
-    safeSearch = !safeSearch;
-    localStorage.setItem("fera-safesearch", safeSearch ? "on" : "off");
-    updateSafeSearchToggle();
-    if (state.query) doSearch(state.query);
-  });
-
-  /* ===== Category filters ===== */
-  var categoryBtns = document.querySelectorAll(".category-btn");
-  categoryBtns.forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      var category = btn.getAttribute("data-category");
-      categoryBtns.forEach(function (b) {
-        b.classList.remove("active");
-      });
-      btn.classList.add("active");
-      state.category = category;
-
-      // Update URL with API category for reload
-      var url = new URL(window.location.href);
-      url.searchParams.set("categories", CATEGORY_API_MAP[category] || "general");
-      url.searchParams.set("safesearch", safeSearch ? "1" : "0");
-      url.searchParams.delete("category");
-      window.history.replaceState({}, "", url.toString());
-
-      if (state.query) doSearch(state.query);
-    });
-  });
-
-  /* ===== Search form ===== */
-  $searchForm.addEventListener("submit", function (e) {
-    e.preventDefault();
-    var q = $searchInput.value.trim();
-    if (q) doSearch(q);
-  });
-
-  /* ===== URL query param on load ===== */
-  var params = new URLSearchParams(window.location.search);
-  var initialQ = params.get("q");
-  var initialApiCategory = params.get("categories");
-  var initialSafeSearch = params.get("safesearch");
-
-  if (initialSafeSearch === "1" || initialSafeSearch === "0") {
-    safeSearch = initialSafeSearch === "1";
-    localStorage.setItem("fera-safesearch", safeSearch ? "on" : "off");
-    updateSafeSearchToggle();
-  }
-
-  if (initialApiCategory && API_CATEGORY_UI_MAP[initialApiCategory]) {
-    state.category = API_CATEGORY_UI_MAP[initialApiCategory];
-    categoryBtns.forEach(function (b) {
-      b.classList.toggle("active", b.getAttribute("data-category") === state.category);
-    });
-  }
-
-  if (initialQ) doSearch(initialQ);
-
-  /* ===== Helpers ===== */
-  function getDomain(url) {
-    try {
-      return new URL(url).hostname.replace(/^www\./, "");
-    } catch (e) {
-      return url;
-    }
-  }
-
-  function engineBadgeClass(engine) {
-    var map = {
-      google: "badge-google",
-      brave: "badge-brave",
-      duckduckgo: "badge-duckduckgo",
-      startpage: "badge-startpage",
-      bing: "badge-bing",
-      wikipedia: "badge-wikipedia",
-    };
-    return map[engine.toLowerCase()] || "badge-default";
-  }
-
-  function escapeHtml(str) {
-    var div = document.createElement("div");
-    div.appendChild(document.createTextNode(str));
-    return div.innerHTML;
-  }
-
-  function escapeAttr(str) {
-    return str
-      .replace(/&/g, "&amp;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-  }
-
-  function normalizeMediaUrl(u) {
-    if (!u) return u;
-    if (typeof u !== "string") return u;
-    if (u.startsWith("//")) u = "https:" + u;
-    if (u.startsWith("http://")) u = "https://" + u.slice("http://".length);
-    return u;
-  }
-})();
+    card.className
