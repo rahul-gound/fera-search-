@@ -1,16 +1,144 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Fera Search</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  </head>
-  <body class="bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors">
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fera Search</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234f46e5'/><text x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-family='Inter,sans-serif' font-weight='700' font-size='18'>F</text></svg>" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Header -->
+  <header id="header">
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-icon">F</div>
+        <span class="logo-text">Fera <span class="logo-accent">Search</span></span>
+      </div>
+      <div class="header-actions">
+        <button id="btn-history" class="icon-btn" aria-label="History">
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </button>
+        <button id="btn-theme" class="icon-btn" aria-label="Toggle dark mode">
+          <svg id="icon-moon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+          <svg id="icon-sun" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:none"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        </button>
+        <button id="btn-signin" class="signin-btn">
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+          Sign in
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Search bar -->
+  <div class="search-area">
+    <form id="search-form" class="search-form">
+      <div class="search-wrapper">
+        <svg class="search-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <input id="search-input" type="text" placeholder="Search the web privately…" aria-label="Search" autocomplete="off" />
+        <button type="submit" class="search-submit">Search</button>
+      </div>
+      <p class="search-hint">Press <kbd>/</kbd> to focus</p>
+    </form>
+  </div>
+
+  <!-- Main content -->
+  <main class="main-content">
+    <div class="content-grid">
+      <!-- Left: Results -->
+      <div id="results-panel" class="results-panel">
+        <!-- Welcome state (shown by default) -->
+        <div id="welcome" class="welcome">
+          <div class="welcome-icon">F</div>
+          <h1>Search privately with <span class="logo-accent">Fera</span></h1>
+          <p>Fast metasearch with AI-powered summaries. No tracking, no personal data collected.</p>
+        </div>
+      </div>
+
+      <!-- Right: AI panel (desktop only) -->
+      <aside id="ai-panel-desktop" class="ai-panel-desktop">
+        <div class="ai-card">
+          <h2 class="ai-title">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.381z"/></svg>
+            AI Summary
+          </h2>
+          <div id="ai-content-desktop">
+            <p class="ai-idle">Search to see an AI summary</p>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <!-- Mobile AI drawer toggle button -->
+  <div id="mobile-ai-toggle" class="mobile-ai-toggle" style="display:none">
+    <button id="btn-mobile-ai">
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.381z"/></svg>
+      AI Summary
+      <span id="ai-pulse" class="ai-pulse" style="display:none"></span>
+    </button>
+  </div>
+
+  <!-- Mobile AI bottom-sheet drawer -->
+  <div id="ai-drawer-backdrop" class="drawer-backdrop" style="display:none"></div>
+  <div id="ai-drawer" class="ai-drawer">
+    <div class="drawer-handle"></div>
+    <div class="ai-card">
+      <h2 class="ai-title">
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.381z"/></svg>
+        AI Summary
+      </h2>
+      <div id="ai-content-mobile"></div>
+    </div>
+  </div>
+
+  <!-- History drawer -->
+  <div id="history-backdrop" class="drawer-backdrop" style="display:none"></div>
+  <div id="history-drawer" class="history-drawer">
+    <div class="drawer-header">
+      <h2>History</h2>
+      <button id="btn-history-close" class="icon-btn" aria-label="Close">
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="drawer-body">
+      <div class="history-toggle-row">
+        <span>Remember history</span>
+        <button id="btn-history-toggle" class="toggle-switch" role="switch" aria-checked="false">
+          <span class="toggle-knob"></span>
+        </button>
+      </div>
+      <div id="history-content">
+        <p class="text-muted text-xs">History is off. No searches are stored locally.</p>
+      </div>
+      <div class="history-footer">
+        <p class="text-muted text-xs">Sign in to sync history across devices (optional). All data stays local by default.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sign-in modal -->
+  <div id="signin-backdrop" class="modal-backdrop" style="display:none">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Sign in</h2>
+        <button id="btn-signin-close" class="icon-btn" aria-label="Close">
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <p class="text-muted text-sm" style="margin-bottom:16px">Sign in to sync your search history across devices. Searching works fully without an account.</p>
+      <div class="signin-form">
+        <input type="email" placeholder="your@email.com" class="signin-input" />
+        <button type="button" class="btn-primary">Send magic link</button>
+      </div>
+      <p class="text-muted text-xs" style="text-align:center;margin-top:12px">We'll send you a one-time login link. No password needed.</p>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
 </html>
