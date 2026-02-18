@@ -5,11 +5,8 @@
   var PROXY_BASE = "https://himanshu-711-fera-search-proxy.hf.space";
   var VALID_CATEGORIES = ["all", "video", "photo", "news"];
 
-  // UI -> API
-  // all   -> general
-  // photo -> images
-  // video -> videos
-  // news  -> news
+  // UI -> BACKEND categories (EXACT strings your proxy expects)
+  // /search?q=hi&safesearch=1&categories=general|images|videos|news
   var CATEGORY_API_MAP = {
     all: "general",
     photo: "images",
@@ -17,7 +14,6 @@
     news: "news",
   };
 
-  // API -> UI (for restoring state from URL)
   var API_CATEGORY_UI_MAP = {
     general: "all",
     images: "photo",
@@ -105,17 +101,16 @@
 
   /* ===== API ===== */
   function fetchSearch(query, category, signal) {
-    // IMPORTANT: match your backend format exactly:
-    // ?q=hi&safesearch=1&categories=videos
+    // ✅ EXACT format your proxy expects (NO extra params):
+    // https://.../search?q=hi&safesearch=1&categories=videos
     var apiCategory = CATEGORY_API_MAP[category] || "general";
+
     var url =
       PROXY_BASE +
-      "/search?q=" +
-      encodeURIComponent(query) +
-      "&safesearch=" +
-      (safeSearch ? "1" : "0") +
-      "&categories=" +
-      encodeURIComponent(apiCategory);
+      "/search" +
+      "?q=" + encodeURIComponent(query) +
+      "&safesearch=" + (safeSearch ? "1" : "0") +
+      "&categories=" + encodeURIComponent(apiCategory);
 
     return fetch(url, { signal: signal }).then(function (res) {
       if (!res.ok) throw new Error("Search failed (" + res.status + ")");
@@ -137,7 +132,6 @@
     var trimmed = query.trim();
     if (!trimmed) return;
 
-    // Abort previous
     if (searchAbort) searchAbort.abort();
     if (aiAbort) aiAbort.abort();
 
@@ -151,32 +145,28 @@
     state.searchLoading = true;
     state.searchError = null;
     state.aiData = null;
-    // Only enable AI loading for "all" category
     state.aiLoading = state.category === "all";
     state.aiError = null;
 
     $searchInput.value = trimmed;
 
-    // Update URL (store API categories param, not UI category)
+    // Update URL (store API categories param too)
     var url = new URL(window.location.href);
     url.searchParams.set("q", trimmed);
-    var currentApiCategory = CATEGORY_API_MAP[state.category] || "general";
     url.searchParams.set("safesearch", safeSearch ? "1" : "0");
-    url.searchParams.set("categories", currentApiCategory);
+    url.searchParams.set("categories", CATEGORY_API_MAP[state.category] || "general");
     url.searchParams.delete("category");
     window.history.pushState({}, "", url.toString());
 
     renderResults();
     renderAI();
 
-    // 1) Search results first
     fetchSearch(trimmed, state.category, sCtrl.signal)
       .then(function (data) {
         state.searchData = data;
         state.searchLoading = false;
         renderResults();
 
-        // Save history
         if (historyEnabled && data && data.data && data.data.results) {
           var top3 = data.data.results.slice(0, 3).map(function (r) {
             return { title: r.title, url: r.url };
@@ -195,21 +185,19 @@
       })
       .then(function () {
         if (state.searchError) return;
-        // 2) AI summary (non-blocking) - ONLY for "all" category
+
         if (state.category !== "all") {
           state.aiLoading = false;
           renderAI();
           return;
         }
+
         return fetchSummarize(trimmed, aCtrl.signal)
           .then(function (ai) {
             state.aiData = ai;
             state.aiLoading = false;
             renderAI();
-            // Auto-open mobile AI drawer
-            if (window.innerWidth < 768) {
-              openAiDrawer();
-            }
+            if (window.innerWidth < 768) openAiDrawer();
           })
           .catch(function (err) {
             if (err.name === "AbortError") return;
@@ -245,7 +233,6 @@
 
   /* ===== Render: Results ===== */
   function renderResults() {
-    // Clear dynamic content (keep welcome hidden/shown)
     var children = Array.from($resultsPanel.children);
     children.forEach(function (c) {
       if (c.id !== "welcome") $resultsPanel.removeChild(c);
@@ -267,28 +254,22 @@
       (state.searchData && state.searchData.data && state.searchData.data.suggestions) ||
       [];
 
-    // Infoboxes
     infoboxes.forEach(function (ib) {
       $resultsPanel.appendChild(createInfobox(ib));
     });
 
-    // Suggestions
     if (suggestions.length > 0) {
       $resultsPanel.appendChild(createSuggestions(suggestions));
     }
 
-    // Loading skeletons
     if (state.searchLoading) {
       var skList = document.createElement("div");
       skList.className = "skeleton-list";
-      for (var i = 0; i < 5; i++) {
-        skList.appendChild(createSkeletonCard());
-      }
+      for (var i = 0; i < 5; i++) skList.appendChild(createSkeletonCard());
       $resultsPanel.appendChild(skList);
       return;
     }
 
-    // Error
     if (state.searchError) {
       var errDiv = document.createElement("div");
       errDiv.className = "error-card";
@@ -304,7 +285,6 @@
       return;
     }
 
-    // PHOTO GRID
     if (state.category === "photo" && results.length > 0) {
       var grid = document.createElement("div");
       grid.className = "image-grid";
@@ -315,7 +295,6 @@
       return;
     }
 
-    // Default results list
     if (results.length > 0) {
       var list = document.createElement("div");
       list.className = "results-list";
@@ -326,7 +305,6 @@
       return;
     }
 
-    // Empty
     if (state.searchData) {
       var empty = document.createElement("div");
       empty.className = "empty-card";
@@ -346,13 +324,11 @@
     var body = document.createElement("div");
     body.className = "result-body";
 
-    // Domain
     var domain = document.createElement("p");
     domain.className = "result-domain";
     domain.textContent = getDomain(r.url);
     body.appendChild(domain);
 
-    // Title
     var title = document.createElement("a");
     title.className = "result-title";
     title.href = r.url;
@@ -361,7 +337,6 @@
     title.textContent = r.title || "Untitled";
     body.appendChild(title);
 
-    // Snippet
     if (r.content) {
       var snippet = document.createElement("p");
       snippet.className = "result-snippet";
@@ -369,7 +344,6 @@
       body.appendChild(snippet);
     }
 
-    // Engine badges
     var engines = r.engines || (r.engine ? [r.engine] : []);
     if (engines.length > 0) {
       var badges = document.createElement("div");
@@ -385,7 +359,6 @@
 
     inner.appendChild(body);
 
-    // Thumbnail (supports thumbnail_src)
     var thumbUrl =
       r.thumbnail ||
       r.thumbnail_src ||
@@ -460,11 +433,13 @@
     var h3 = document.createElement("h3");
     h3.textContent = ib.infobox || "";
     body.appendChild(h3);
+
     if (ib.content) {
       var p = document.createElement("p");
       p.textContent = ib.content;
       body.appendChild(p);
     }
+
     inner.appendChild(body);
     card.appendChild(inner);
 
@@ -521,16 +496,13 @@
     var html = buildAIHTML();
     $aiDesktop.innerHTML = html;
     $aiMobile.innerHTML = html;
-
     wireAIButtons($aiDesktop);
     wireAIButtons($aiMobile);
-
     $aiPulse.style.display = state.aiLoading ? "" : "none";
   }
 
   function buildAIHTML() {
     var hasQuery = state.query.length > 0;
-
     if (!hasQuery) return '<p class="ai-idle">Search to see an AI summary</p>';
 
     if (state.category !== "all") {
@@ -538,62 +510,17 @@
     }
 
     if (state.aiLoading) {
-      return (
-        '<div class="ai-thinking"><div class="dot"></div><span>Thinking…</span></div>' +
-        '<div class="skeleton" style="height:16px;width:100%;margin-bottom:12px"></div>' +
-        '<div class="skeleton" style="height:16px;width:83%;margin-bottom:12px"></div>' +
-        '<div class="skeleton" style="height:16px;width:66%;margin-bottom:12px"></div>' +
-        '<div class="skeleton" style="height:16px;width:100%;margin-bottom:12px"></div>' +
-        '<div class="skeleton" style="height:16px;width:75%;margin-bottom:16px"></div>'
-      );
+      return '<div class="ai-thinking"><div class="dot"></div><span>Thinking…</span></div>';
     }
 
     if (state.aiError) {
-      return (
-        '<p class="ai-error">AI not available</p>' +
-        '<button class="retry-link" data-ai-retry>Retry</button>'
-      );
+      return '<p class="ai-error">AI not available</p><button class="retry-link" data-ai-retry>Retry</button>';
     }
 
     if (state.aiData && state.aiData.ai) {
       var ai = state.aiData.ai;
       var h = "";
       h += '<div class="ai-summary-text">' + escapeHtml(ai.summary || "") + "</div>";
-
-      if (ai.key_points && ai.key_points.length > 0) {
-        h += '<p class="ai-section-label">Key Points</p><div class="ai-chips">';
-        ai.key_points.forEach(function (kp) {
-          h += '<span class="ai-chip">' + escapeHtml(kp) + "</span>";
-        });
-        h += "</div>";
-      }
-
-      if (ai.best_sources && ai.best_sources.length > 0) {
-        h += '<p class="ai-section-label">Best Sources</p><ul class="ai-sources">';
-        ai.best_sources.forEach(function (src) {
-          h +=
-            '<li><a href="' +
-            escapeAttr(src.url) +
-            '" target="_blank" rel="noopener noreferrer">' +
-            escapeHtml(src.title || src.url) +
-            "</a></li>";
-        });
-        h += "</ul>";
-      }
-
-      if (ai.follow_up_queries && ai.follow_up_queries.length > 0) {
-        h += '<p class="ai-section-label">Related Searches</p><div class="ai-chips">';
-        ai.follow_up_queries.forEach(function (q) {
-          h +=
-            '<button class="ai-followup-chip" data-followup="' +
-            escapeAttr(q) +
-            '">' +
-            escapeHtml(q) +
-            "</button>";
-        });
-        h += "</div>";
-      }
-
       h += '<p class="ai-privacy">Generated from top results (no personal tracking)</p>';
       return h;
     }
@@ -794,71 +721,7 @@
     safeSearch = !safeSearch;
     localStorage.setItem("fera-safesearch", safeSearch ? "on" : "off");
     updateSafeSearchToggle();
-    updateSettingsToggles();
     if (state.query) doSearch(state.query);
-  });
-
-  /* ===== Settings drawer ===== */
-  function openSettingsDrawer() {
-    $settingsBackdrop.style.display = "";
-    $settingsDrawer.classList.add("open");
-    updateSettingsToggles();
-  }
-  function closeSettingsDrawer() {
-    $settingsBackdrop.style.display = "none";
-    $settingsDrawer.classList.remove("open");
-  }
-  function updateSettingsToggles() {
-    if (safeSearch) {
-      $settingsSafeSearchToggle.classList.add("on");
-      $settingsSafeSearchToggle.setAttribute("aria-checked", "true");
-    } else {
-      $settingsSafeSearchToggle.classList.remove("on");
-      $settingsSafeSearchToggle.setAttribute("aria-checked", "false");
-    }
-
-    var isDark = document.body.classList.contains("dark");
-    if (isDark) {
-      $settingsThemeToggle.classList.add("on");
-      $settingsThemeToggle.setAttribute("aria-checked", "true");
-    } else {
-      $settingsThemeToggle.classList.remove("on");
-      $settingsThemeToggle.setAttribute("aria-checked", "false");
-    }
-
-    if (historyEnabled) {
-      $settingsHistoryToggle.classList.add("on");
-      $settingsHistoryToggle.setAttribute("aria-checked", "true");
-    } else {
-      $settingsHistoryToggle.classList.remove("on");
-      $settingsHistoryToggle.setAttribute("aria-checked", "false");
-    }
-  }
-
-  document.getElementById("btn-settings").addEventListener("click", openSettingsDrawer);
-  document.getElementById("btn-settings-close").addEventListener("click", closeSettingsDrawer);
-  $settingsBackdrop.addEventListener("click", closeSettingsDrawer);
-
-  $settingsSafeSearchToggle.addEventListener("click", function () {
-    safeSearch = !safeSearch;
-    localStorage.setItem("fera-safesearch", safeSearch ? "on" : "off");
-    updateSafeSearchToggle();
-    updateSettingsToggles();
-    if (state.query) doSearch(state.query);
-  });
-
-  $settingsThemeToggle.addEventListener("click", function () {
-    var isDark = document.body.classList.contains("dark");
-    applyTheme(isDark ? "light" : "dark");
-    updateSettingsToggles();
-  });
-
-  $settingsHistoryToggle.addEventListener("click", function () {
-    historyEnabled = !historyEnabled;
-    localStorage.setItem("fera-history", historyEnabled ? "on" : "off");
-    updateHistoryToggle();
-    updateSettingsToggles();
-    renderHistoryContent();
   });
 
   /* ===== Category filters ===== */
@@ -866,18 +729,15 @@
   categoryBtns.forEach(function (btn) {
     btn.addEventListener("click", function () {
       var category = btn.getAttribute("data-category");
-
       categoryBtns.forEach(function (b) {
         b.classList.remove("active");
       });
       btn.classList.add("active");
-
       state.category = category;
 
-      // Update URL with API categories (exactly what backend expects)
+      // Update URL with API category for reload
       var url = new URL(window.location.href);
-      var apiCategory = CATEGORY_API_MAP[category] || "general";
-      url.searchParams.set("categories", apiCategory);
+      url.searchParams.set("categories", CATEGORY_API_MAP[category] || "general");
       url.searchParams.set("safesearch", safeSearch ? "1" : "0");
       url.searchParams.delete("category");
       window.history.replaceState({}, "", url.toString());
@@ -896,7 +756,6 @@
   /* ===== URL query param on load ===== */
   var params = new URLSearchParams(window.location.search);
   var initialQ = params.get("q");
-  var initialCategory = params.get("category");
   var initialApiCategory = params.get("categories");
   var initialSafeSearch = params.get("safesearch");
 
@@ -906,14 +765,10 @@
     updateSafeSearchToggle();
   }
 
-  if (!initialCategory && initialApiCategory && API_CATEGORY_UI_MAP[initialApiCategory]) {
-    initialCategory = API_CATEGORY_UI_MAP[initialApiCategory];
-  }
-
-  if (initialCategory && VALID_CATEGORIES.indexOf(initialCategory) !== -1) {
-    state.category = initialCategory;
+  if (initialApiCategory && API_CATEGORY_UI_MAP[initialApiCategory]) {
+    state.category = API_CATEGORY_UI_MAP[initialApiCategory];
     categoryBtns.forEach(function (b) {
-      b.classList.toggle("active", b.getAttribute("data-category") === initialCategory);
+      b.classList.toggle("active", b.getAttribute("data-category") === state.category);
     });
   }
 
