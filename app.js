@@ -7,6 +7,7 @@
   /* ===== State ===== */
   var state = {
     query: "",
+    category: "all",
     searchData: null,
     searchLoading: false,
     searchError: null,
@@ -18,6 +19,11 @@
   var aiAbort = null;
   var historyEnabled = localStorage.getItem("fera-history") === "on";
   var aiDrawerOpen = false;
+  var otpData = {
+    email: "",
+    otp: "",
+    sent: false,
+  };
 
   /* ===== DOM refs ===== */
   var $searchInput = document.getElementById("search-input");
@@ -74,8 +80,15 @@
   });
 
   /* ===== API ===== */
-  function fetchSearch(query, signal) {
-    return fetch(PROXY_BASE + "/search?q=" + encodeURIComponent(query), { signal: signal })
+  function fetchSearch(query, category, signal) {
+    var url = PROXY_BASE + "/search?q=" + encodeURIComponent(query);
+    
+    // Add category parameter if not "all"
+    if (category && category !== "all") {
+      url += "&category=" + encodeURIComponent(category);
+    }
+    
+    return fetch(url, { signal: signal })
       .then(function (res) {
         if (!res.ok) throw new Error("Search failed (" + res.status + ")");
         return res.json();
@@ -122,7 +135,7 @@
     renderAI();
 
     // 1) Search results first
-    fetchSearch(trimmed, sCtrl.signal)
+    fetchSearch(trimmed, state.category, sCtrl.signal)
       .then(function (data) {
         state.searchData = data;
         state.searchLoading = false;
@@ -674,14 +687,176 @@
   $historyBackdrop.addEventListener("click", closeHistoryDrawer);
 
   /* ===== Sign-in modal ===== */
+  function resetSigninModal() {
+    document.getElementById("signin-email").value = "";
+    document.getElementById("otp-section").style.display = "none";
+    document.getElementById("success-section").style.display = "none";
+    document.getElementById("signin-info").style.display = "";
+    document.querySelector(".signin-form").style.display = "";
+    var otpDigits = document.querySelectorAll(".otp-digit");
+    otpDigits.forEach(function(input) { input.value = ""; });
+    otpData.email = "";
+    otpData.otp = "";
+    otpData.sent = false;
+  }
+
   document.getElementById("btn-signin").addEventListener("click", function () {
+    resetSigninModal();
     $signinBackdrop.style.display = "";
   });
   document.getElementById("btn-signin-close").addEventListener("click", function () {
     $signinBackdrop.style.display = "none";
+    resetSigninModal();
   });
   $signinBackdrop.addEventListener("click", function () {
     $signinBackdrop.style.display = "none";
+    resetSigninModal();
+  });
+
+  /* ===== OTP functionality ===== */
+  document.getElementById("btn-send-otp").addEventListener("click", function () {
+    var email = document.getElementById("signin-email").value.trim();
+    if (!email || !email.includes("@")) {
+      alert("Please enter a valid email address");
+      return;
+    }
+    
+    // Simulate sending OTP (in real app, this would call an API)
+    otpData.email = email;
+    otpData.otp = Math.floor(100000 + Math.random() * 900000).toString();
+    otpData.sent = true;
+    
+    // For demo purposes, show the OTP in console
+    console.log("OTP sent to " + email + ": " + otpData.otp);
+    alert("OTP sent to " + email + ": " + otpData.otp + "\n(In production, this would be sent via email)");
+    
+    // Show OTP input section
+    document.getElementById("otp-section").style.display = "block";
+    document.getElementById("signin-info").style.display = "none";
+    document.querySelector(".signin-form").style.display = "none";
+    
+    // Focus first OTP input
+    document.querySelector(".otp-digit").focus();
+  });
+
+  document.getElementById("btn-resend-otp").addEventListener("click", function () {
+    if (!otpData.email) return;
+    
+    // Regenerate OTP
+    otpData.otp = Math.floor(100000 + Math.random() * 900000).toString();
+    console.log("OTP resent to " + otpData.email + ": " + otpData.otp);
+    alert("New OTP sent to " + otpData.email + ": " + otpData.otp + "\n(In production, this would be sent via email)");
+    
+    // Clear OTP inputs
+    var otpDigits = document.querySelectorAll(".otp-digit");
+    otpDigits.forEach(function(input) { input.value = ""; });
+    document.querySelector(".otp-digit").focus();
+  });
+
+  document.getElementById("btn-verify-otp").addEventListener("click", function () {
+    var enteredOtp = "";
+    var otpDigits = document.querySelectorAll(".otp-digit");
+    otpDigits.forEach(function(input) {
+      enteredOtp += input.value;
+    });
+    
+    if (enteredOtp.length !== 6) {
+      alert("Please enter all 6 digits");
+      return;
+    }
+    
+    if (enteredOtp === otpData.otp) {
+      // Success!
+      document.getElementById("otp-section").style.display = "none";
+      document.getElementById("success-section").style.display = "block";
+      
+      // Store login state
+      localStorage.setItem("fera-user-email", otpData.email);
+      localStorage.setItem("fera-user-logged-in", "true");
+      
+      // Update UI
+      var signinBtn = document.getElementById("btn-signin");
+      signinBtn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>' + otpData.email.split("@")[0];
+      
+      // Close modal after 2 seconds
+      setTimeout(function() {
+        $signinBackdrop.style.display = "none";
+        resetSigninModal();
+      }, 2000);
+    } else {
+      alert("Invalid OTP. Please try again.");
+    }
+  });
+
+  /* ===== OTP input navigation ===== */
+  var otpInputs = document.querySelectorAll(".otp-digit");
+  otpInputs.forEach(function(input, index) {
+    input.addEventListener("input", function(e) {
+      var value = e.target.value;
+      
+      // Only allow digits
+      if (!/^\d*$/.test(value)) {
+        e.target.value = "";
+        return;
+      }
+      
+      // Move to next input if value entered
+      if (value.length === 1 && index < otpInputs.length - 1) {
+        otpInputs[index + 1].focus();
+      }
+    });
+    
+    input.addEventListener("keydown", function(e) {
+      // Move to previous input on backspace if current is empty
+      if (e.key === "Backspace" && !e.target.value && index > 0) {
+        otpInputs[index - 1].focus();
+      }
+    });
+    
+    // Handle paste
+    input.addEventListener("paste", function(e) {
+      e.preventDefault();
+      var pastedData = e.clipboardData.getData("text").trim();
+      if (/^\d{6}$/.test(pastedData)) {
+        pastedData.split("").forEach(function(char, i) {
+          if (otpInputs[i]) {
+            otpInputs[i].value = char;
+          }
+        });
+        otpInputs[5].focus();
+      }
+    });
+  });
+
+  /* ===== Check if user is already logged in ===== */
+  function checkLoginStatus() {
+    var isLoggedIn = localStorage.getItem("fera-user-logged-in") === "true";
+    var userEmail = localStorage.getItem("fera-user-email");
+    if (isLoggedIn && userEmail) {
+      var signinBtn = document.getElementById("btn-signin");
+      signinBtn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>' + userEmail.split("@")[0];
+    }
+  }
+  checkLoginStatus();
+
+  /* ===== Category filters ===== */
+  var categoryBtns = document.querySelectorAll(".category-btn");
+  categoryBtns.forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      var category = btn.getAttribute("data-category");
+      
+      // Update active state
+      categoryBtns.forEach(function(b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+      
+      // Update state
+      state.category = category;
+      
+      // If there's a current search, re-run it with the new category
+      if (state.query) {
+        doSearch(state.query);
+      }
+    });
   });
 
   /* ===== Search form ===== */
