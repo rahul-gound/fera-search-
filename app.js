@@ -37,6 +37,11 @@
   var $historyContent = document.getElementById("history-content");
   var $historyToggleBtn = document.getElementById("btn-history-toggle");
   var $safeSearchToggle = document.getElementById("safesearch-toggle");
+  var $settingsDrawer = document.getElementById("settings-drawer");
+  var $settingsBackdrop = document.getElementById("settings-backdrop");
+  var $settingsSafeSearchToggle = document.getElementById("settings-safesearch-toggle");
+  var $settingsThemeToggle = document.getElementById("settings-theme-toggle");
+  var $settingsHistoryToggle = document.getElementById("settings-history-toggle");
 
   /* ===== Theme ===== */
   function initTheme() {
@@ -133,6 +138,11 @@
     // Update URL
     var url = new URL(window.location.href);
     url.searchParams.set("q", trimmed);
+    if (state.category && state.category !== "all") {
+      url.searchParams.set("category", state.category);
+    } else {
+      url.searchParams.delete("category");
+    }
     window.history.pushState({}, "", url.toString());
 
     renderResults();
@@ -716,11 +726,78 @@
     safeSearch = !safeSearch;
     localStorage.setItem("fera-safesearch", safeSearch ? "on" : "off");
     updateSafeSearchToggle();
+    updateSettingsToggles();
 
     // Re-run search if there's a current query
     if (state.query) {
       doSearch(state.query);
     }
+  });
+
+  /* ===== Settings drawer ===== */
+  function openSettingsDrawer() {
+    $settingsBackdrop.style.display = "";
+    $settingsDrawer.classList.add("open");
+    updateSettingsToggles();
+  }
+  function closeSettingsDrawer() {
+    $settingsBackdrop.style.display = "none";
+    $settingsDrawer.classList.remove("open");
+  }
+  function updateSettingsToggles() {
+    // SafeSearch
+    if (safeSearch) {
+      $settingsSafeSearchToggle.classList.add("on");
+      $settingsSafeSearchToggle.setAttribute("aria-checked", "true");
+    } else {
+      $settingsSafeSearchToggle.classList.remove("on");
+      $settingsSafeSearchToggle.setAttribute("aria-checked", "false");
+    }
+    // Theme
+    var isDark = document.body.classList.contains("dark");
+    if (isDark) {
+      $settingsThemeToggle.classList.add("on");
+      $settingsThemeToggle.setAttribute("aria-checked", "true");
+    } else {
+      $settingsThemeToggle.classList.remove("on");
+      $settingsThemeToggle.setAttribute("aria-checked", "false");
+    }
+    // History
+    if (historyEnabled) {
+      $settingsHistoryToggle.classList.add("on");
+      $settingsHistoryToggle.setAttribute("aria-checked", "true");
+    } else {
+      $settingsHistoryToggle.classList.remove("on");
+      $settingsHistoryToggle.setAttribute("aria-checked", "false");
+    }
+  }
+
+  document.getElementById("btn-settings").addEventListener("click", openSettingsDrawer);
+  document.getElementById("btn-settings-close").addEventListener("click", closeSettingsDrawer);
+  $settingsBackdrop.addEventListener("click", closeSettingsDrawer);
+
+  $settingsSafeSearchToggle.addEventListener("click", function () {
+    safeSearch = !safeSearch;
+    localStorage.setItem("fera-safesearch", safeSearch ? "on" : "off");
+    updateSafeSearchToggle();
+    updateSettingsToggles();
+    if (state.query) {
+      doSearch(state.query);
+    }
+  });
+
+  $settingsThemeToggle.addEventListener("click", function () {
+    var isDark = document.body.classList.contains("dark");
+    applyTheme(isDark ? "light" : "dark");
+    updateSettingsToggles();
+  });
+
+  $settingsHistoryToggle.addEventListener("click", function () {
+    historyEnabled = !historyEnabled;
+    localStorage.setItem("fera-history", historyEnabled ? "on" : "off");
+    updateHistoryToggle();
+    updateSettingsToggles();
+    renderHistoryContent();
   });
 
   /* ===== Category filters ===== */
@@ -735,6 +812,15 @@
       
       // Update state
       state.category = category;
+
+      // Update URL with category
+      var url = new URL(window.location.href);
+      if (category && category !== "all") {
+        url.searchParams.set("category", category);
+      } else {
+        url.searchParams.delete("category");
+      }
+      window.history.replaceState({}, "", url.toString());
       
       // If there's a current search, re-run it with the new category
       if (state.query) {
@@ -753,6 +839,14 @@
   /* ===== URL query param on load ===== */
   var params = new URLSearchParams(window.location.search);
   var initialQ = params.get("q");
+  var initialCategory = params.get("category");
+  if (initialCategory && ["video", "photo", "news"].indexOf(initialCategory) !== -1) {
+    state.category = initialCategory;
+    // Update category button active state
+    categoryBtns.forEach(function(b) {
+      b.classList.toggle("active", b.getAttribute("data-category") === initialCategory);
+    });
+  }
   if (initialQ) {
     doSearch(initialQ);
   }
