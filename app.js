@@ -3,6 +3,21 @@
 
   /* ===== Config ===== */
   var PROXY_BASE = "https://himanshu-711-fera-search-proxy.hf.space";
+  
+  /* ===== Supabase Config ===== */
+  // Note: In production, use environment variables for these values
+  var SUPABASE_URL = "https://YOUR_SUPABASE_URL.supabase.co";
+  var SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+  
+  // Initialize Supabase client
+  var supabase = null;
+  try {
+    if (typeof window.supabase !== 'undefined' && typeof window.supabase.createClient === 'function') {
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+  } catch (e) {
+    console.warn("Supabase client not initialized:", e);
+  }
 
   /* ===== State ===== */
   var state = {
@@ -82,10 +97,17 @@
   /* ===== API ===== */
   function fetchSearch(query, category, signal) {
     var url = PROXY_BASE + "/search?q=" + encodeURIComponent(query);
+    url += "&format=json&safesearch=1";
     
-    // Add category parameter if not "all"
+    // Map category to categories parameter for API
     if (category && category !== "all") {
-      url += "&category=" + encodeURIComponent(category);
+      var categoryMap = {
+        "video": "videos",
+        "photo": "images",
+        "news": "news"
+      };
+      var apiCategory = categoryMap[category] || category;
+      url += "&categories=" + encodeURIComponent(apiCategory);
     }
     
     return fetch(url, { signal: signal })
@@ -121,7 +143,8 @@
     state.searchLoading = true;
     state.searchError = null;
     state.aiData = null;
-    state.aiLoading = true;
+    // Only enable AI loading for "all" category
+    state.aiLoading = (state.category === "all");
     state.aiError = null;
 
     $searchInput.value = trimmed;
@@ -160,7 +183,12 @@
       })
       .then(function () {
         if (state.searchError) return;
-        // 2) AI summary (non-blocking)
+        // 2) AI summary (non-blocking) - ONLY for "all" category
+        if (state.category !== "all") {
+          state.aiLoading = false;
+          renderAI();
+          return;
+        }
         return fetchSummarize(trimmed, aCtrl.signal)
           .then(function (ai) {
             state.aiData = ai;
@@ -437,6 +465,11 @@
       return '<p class="ai-idle">Search to see an AI summary</p>';
     }
 
+    // Show message if category is not "all"
+    if (state.category !== "all") {
+      return '<p class="ai-idle">AI summaries are only available for "All" category searches</p>';
+    }
+
     if (state.aiLoading) {
       return '<div class="ai-thinking"><div class="dot"></div><span>Thinking…</span></div>' +
         '<div class="skeleton" style="height:16px;width:100%;margin-bottom:12px"></div>' +
@@ -689,6 +722,7 @@
   /* ===== Sign-in modal ===== */
   function resetSigninModal() {
     document.getElementById("signin-email").value = "";
+    document.getElementById("signin-password").value = "";
     document.getElementById("otp-section").style.display = "none";
     document.getElementById("success-section").style.display = "none";
     document.getElementById("signin-info").style.display = "";
@@ -713,58 +747,163 @@
     resetSigninModal();
   });
 
-  /* ===== OTP functionality ===== */
-  function generateSecureOTP() {
-    // Use cryptographically secure random number generation
-    var array = new Uint32Array(1);
-    window.crypto.getRandomValues(array);
-    // Generate 6-digit OTP
-    var otp = (array[0] % 900000 + 100000).toString();
-    return otp;
+  /* ===== Authentication with Supabase ===== */
+  function updateUserUI(email) {
+    var signinBtn = document.getElementById("btn-signin");
+    signinBtn.innerHTML = "";
+    
+    var icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    icon.setAttribute("width", "16");
+    icon.setAttribute("height", "16");
+    icon.setAttribute("fill", "none");
+    icon.setAttribute("stroke", "currentColor");
+    icon.setAttribute("viewBox", "0 0 24 24");
+    var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("stroke-linecap", "round");
+    path.setAttribute("stroke-linejoin", "round");
+    path.setAttribute("stroke-width", "1.5");
+    path.setAttribute("d", "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z");
+    icon.appendChild(path);
+    signinBtn.appendChild(icon);
+    
+    var username = document.createTextNode(email.split("@")[0]);
+    signinBtn.appendChild(username);
   }
 
-  document.getElementById("btn-send-otp").addEventListener("click", function () {
+  // Sign In with password
+  document.getElementById("btn-signin-submit").addEventListener("click", function () {
     var email = document.getElementById("signin-email").value.trim();
+    var password = document.getElementById("signin-password").value;
     var emailInput = document.getElementById("signin-email");
     
-    // Validate email using browser's built-in validation
+    // Validate inputs
     if (!emailInput.checkValidity() || !email) {
       alert("Please enter a valid email address");
       return;
     }
     
-    // Simulate sending OTP (in real app, this would call an API)
-    otpData.email = email;
-    otpData.otp = generateSecureOTP();
-    otpData.sent = true;
+    if (password.length < 6) {
+      alert("Password must be at least 6 characters");
+      return;
+    }
     
-    // For demo purposes, show the OTP in console only
-    console.log("OTP sent to " + email + ": " + otpData.otp);
-    alert("OTP sent to " + email + "\n(In production, this would be sent via email)\n\nFor demo: Check browser console for OTP");
-    
-    // Show OTP input section
-    document.getElementById("otp-section").style.display = "block";
-    document.getElementById("signin-info").style.display = "none";
-    document.querySelector(".signin-form").style.display = "none";
-    
-    // Focus first OTP input
-    document.querySelector(".otp-digit").focus();
+    // Use Supabase if available, otherwise fallback to local storage
+    if (supabase) {
+      supabase.auth.signInWithPassword({
+        email: email,
+        password: password
+      }).then(function(response) {
+        if (response.error) {
+          alert("Sign in failed: " + response.error.message);
+          return;
+        }
+        
+        // Success!
+        document.querySelector(".signin-form").style.display = "none";
+        document.getElementById("success-section").style.display = "block";
+        document.getElementById("signin-info").style.display = "none";
+        
+        // Store login state
+        localStorage.setItem("fera-user-email", email);
+        localStorage.setItem("fera-user-logged-in", "true");
+        
+        updateUserUI(email);
+        
+        // Close modal after 2 seconds
+        setTimeout(function() {
+          $signinBackdrop.style.display = "none";
+          resetSigninModal();
+        }, 2000);
+      });
+    } else {
+      // Fallback: Check local storage for existing user
+      var storedEmail = localStorage.getItem("fera-user-email");
+      var storedPassword = localStorage.getItem("fera-user-password");
+      
+      if (storedEmail === email && storedPassword === password) {
+        // Success!
+        document.querySelector(".signin-form").style.display = "none";
+        document.getElementById("success-section").style.display = "block";
+        document.getElementById("signin-info").style.display = "none";
+        
+        localStorage.setItem("fera-user-logged-in", "true");
+        updateUserUI(email);
+        
+        setTimeout(function() {
+          $signinBackdrop.style.display = "none";
+          resetSigninModal();
+        }, 2000);
+      } else {
+        alert("Invalid email or password. Please sign up first.");
+      }
+    }
   });
 
-  document.getElementById("btn-resend-otp").addEventListener("click", function () {
-    if (!otpData.email) return;
+  // Sign Up with password
+  document.getElementById("btn-signup-submit").addEventListener("click", function () {
+    var email = document.getElementById("signin-email").value.trim();
+    var password = document.getElementById("signin-password").value;
+    var emailInput = document.getElementById("signin-email");
     
-    // Regenerate OTP using secure method
-    otpData.otp = generateSecureOTP();
-    console.log("OTP resent to " + otpData.email + ": " + otpData.otp);
-    alert("New OTP sent to " + otpData.email + "\n(In production, this would be sent via email)\n\nFor demo: Check browser console for OTP");
+    // Validate inputs
+    if (!emailInput.checkValidity() || !email) {
+      alert("Please enter a valid email address");
+      return;
+    }
     
-    // Clear OTP inputs
-    var otpDigits = document.querySelectorAll(".otp-digit");
-    otpDigits.forEach(function(input) { input.value = ""; });
-    document.querySelector(".otp-digit").focus();
+    if (password.length < 6) {
+      alert("Password must be at least 6 characters");
+      return;
+    }
+    
+    // Use Supabase if available, otherwise fallback to local storage
+    if (supabase) {
+      supabase.auth.signUp({
+        email: email,
+        password: password,
+        options: {
+          emailRedirectTo: window.location.origin
+        }
+      }).then(function(response) {
+        if (response.error) {
+          alert("Sign up failed: " + response.error.message);
+          return;
+        }
+        
+        // Show OTP section for email verification
+        document.querySelector(".signin-form").style.display = "none";
+        document.getElementById("otp-section").style.display = "block";
+        document.getElementById("signin-info").style.display = "none";
+        
+        otpData.email = email;
+        
+        // Focus first OTP input
+        document.querySelector(".otp-digit").focus();
+        
+        alert("Verification email sent to " + email + ". Please check your inbox and enter the 6-digit code.");
+      });
+    } else {
+      // Fallback: Store user in local storage
+      localStorage.setItem("fera-user-email", email);
+      localStorage.setItem("fera-user-password", password);
+      localStorage.setItem("fera-user-logged-in", "true");
+      
+      document.querySelector(".signin-form").style.display = "none";
+      document.getElementById("success-section").style.display = "block";
+      document.getElementById("signin-info").style.display = "none";
+      
+      updateUserUI(email);
+      
+      alert("Account created successfully! (Note: Supabase not configured, using local storage)");
+      
+      setTimeout(function() {
+        $signinBackdrop.style.display = "none";
+        resetSigninModal();
+      }, 2000);
+    }
   });
 
+  /* ===== OTP Verification ===== */
   document.getElementById("btn-verify-otp").addEventListener("click", function () {
     var enteredOtp = "";
     var otpDigits = document.querySelectorAll(".otp-digit");
@@ -777,43 +916,59 @@
       return;
     }
     
-    if (enteredOtp === otpData.otp) {
-      // Success!
-      document.getElementById("otp-section").style.display = "none";
-      document.getElementById("success-section").style.display = "block";
-      
-      // Store login state
-      localStorage.setItem("fera-user-email", otpData.email);
-      localStorage.setItem("fera-user-logged-in", "true");
-      
-      // Update UI safely using DOM methods to prevent XSS
-      var signinBtn = document.getElementById("btn-signin");
-      signinBtn.innerHTML = "";
-      
-      var icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      icon.setAttribute("width", "16");
-      icon.setAttribute("height", "16");
-      icon.setAttribute("fill", "none");
-      icon.setAttribute("stroke", "currentColor");
-      icon.setAttribute("viewBox", "0 0 24 24");
-      var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("stroke-linecap", "round");
-      path.setAttribute("stroke-linejoin", "round");
-      path.setAttribute("stroke-width", "1.5");
-      path.setAttribute("d", "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z");
-      icon.appendChild(path);
-      signinBtn.appendChild(icon);
-      
-      var username = document.createTextNode(otpData.email.split("@")[0]);
-      signinBtn.appendChild(username);
-      
-      // Close modal after 2 seconds
-      setTimeout(function() {
-        $signinBackdrop.style.display = "none";
-        resetSigninModal();
-      }, 2000);
+    if (supabase && otpData.email) {
+      supabase.auth.verifyOtp({
+        email: otpData.email,
+        token: enteredOtp,
+        type: 'signup'
+      }).then(function(response) {
+        if (response.error) {
+          alert("Invalid OTP: " + response.error.message);
+          return;
+        }
+        
+        // Success!
+        document.getElementById("otp-section").style.display = "none";
+        document.getElementById("success-section").style.display = "block";
+        
+        // Store login state
+        localStorage.setItem("fera-user-email", otpData.email);
+        localStorage.setItem("fera-user-logged-in", "true");
+        
+        updateUserUI(otpData.email);
+        
+        // Close modal after 2 seconds
+        setTimeout(function() {
+          $signinBackdrop.style.display = "none";
+          resetSigninModal();
+        }, 2000);
+      });
     } else {
-      alert("Invalid OTP. Please try again.");
+      alert("OTP verification is only available with Supabase configured");
+    }
+  });
+
+  document.getElementById("btn-resend-otp").addEventListener("click", function () {
+    if (!otpData.email) return;
+    
+    if (supabase) {
+      supabase.auth.resend({
+        type: 'signup',
+        email: otpData.email
+      }).then(function(response) {
+        if (response.error) {
+          alert("Failed to resend OTP: " + response.error.message);
+          return;
+        }
+        alert("New verification code sent to " + otpData.email);
+        
+        // Clear OTP inputs
+        var otpDigits = document.querySelectorAll(".otp-digit");
+        otpDigits.forEach(function(input) { input.value = ""; });
+        document.querySelector(".otp-digit").focus();
+      });
+    } else {
+      alert("Resend OTP is only available with Supabase configured");
     }
   });
 
@@ -859,6 +1014,26 @@
 
   /* ===== Check if user is already logged in ===== */
   function checkLoginStatus() {
+    // Check Supabase session first
+    if (supabase) {
+      supabase.auth.getSession().then(function(response) {
+        if (response.data.session) {
+          var email = response.data.session.user.email;
+          localStorage.setItem("fera-user-email", email);
+          localStorage.setItem("fera-user-logged-in", "true");
+          updateUserUI(email);
+          return;
+        }
+        
+        // If no Supabase session, check localStorage
+        checkLocalLoginStatus();
+      });
+    } else {
+      checkLocalLoginStatus();
+    }
+  }
+  
+  function checkLocalLoginStatus() {
     var isLoggedIn = localStorage.getItem("fera-user-logged-in") === "true";
     var userEmail = localStorage.getItem("fera-user-email");
     if (isLoggedIn && userEmail) {
@@ -881,6 +1056,14 @@
       
       var username = document.createTextNode(userEmail.split("@")[0]);
       signinBtn.appendChild(username);
+    }
+  }
+  
+  function checkLocalLoginStatus() {
+    var isLoggedIn = localStorage.getItem("fera-user-logged-in") === "true";
+    var userEmail = localStorage.getItem("fera-user-email");
+    if (isLoggedIn && userEmail) {
+      updateUserUI(userEmail);
     }
   }
   checkLoginStatus();
