@@ -745,16 +745,26 @@
       var top = state.aiData || {};
       var ai = top.ai || {};
       var nested = top.data || {};
-      var summary =
+
+      // Check for backend error/message fields (even with HTTP 200)
+      var backendError = top.error || ai.error || nested.error || "";
+      var backendMessage = top.message || ai.message || nested.message || "";
+      if (backendError || backendMessage) {
+        var errDiv = document.createElement("div");
+        errDiv.innerHTML = '<p class="ai-error">' + escapeHtml(backendError || backendMessage) + "</p>";
+        var retry = document.createElement("button");
+        retry.className = "retry-link";
+        retry.textContent = "Retry";
+        retry.addEventListener("click", retryAI);
+        errDiv.appendChild(retry);
+        $target.appendChild(errDiv);
+        return;
+      }
+
+      var rawSummary =
         ai.summary || ai.answer || ai.text || ai.response || ai.content ||
         nested.summary || nested.answer || nested.text || nested.response || nested.content ||
         top.summary || top.answer || top.text || top.response || top.content || "";
-      if (typeof summary !== "string") summary = String(summary);
-      summary = summary.trim();
-      if (!summary) {
-        $target.innerHTML = '<p class="ai-idle">No AI summary available.</p>';
-        return;
-      }
 
       var keyPoints = ai.key_points || nested.key_points || top.key_points || [];
       var bestSources = ai.best_sources || nested.best_sources || top.best_sources || [];
@@ -763,8 +773,29 @@
       if (!Array.isArray(bestSources)) bestSources = [];
       if (!Array.isArray(followUp)) followUp = [];
 
+      // If summary is an array, join non-empty items; fall back to key_points if empty
+      var summary = "";
+      if (Array.isArray(rawSummary)) {
+        summary = rawSummary.filter(function (s) { return typeof s === "string" && s.trim(); })
+                            .join("\n");
+      } else {
+        summary = String(rawSummary).trim();
+      }
+
+      if (!summary && keyPoints.length > 0) {
+        summary = keyPoints.map(function (p) {
+          return "• " + (typeof p === "string" ? p : String(p));
+        }).join("\n");
+      }
+
+      if (!summary) {
+        $target.innerHTML = '<p class="ai-idle">No AI summary available.</p>';
+        return;
+      }
+
       var summaryEl = document.createElement("p");
       summaryEl.className = "ai-summary-text";
+      summaryEl.style.whiteSpace = "pre-line";
       summaryEl.textContent = summary;
       $target.appendChild(summaryEl);
 
