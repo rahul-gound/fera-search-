@@ -5,14 +5,16 @@
   var PROXY_BASE = "https://himanshu-711-fera-search-proxy.hf.space";
   
   /* ===== Supabase Config ===== */
-  // Note: In production, use environment variables for these values
-  var SUPABASE_URL = "https://YOUR_SUPABASE_URL.supabase.co";
-  var SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+  // IMPORTANT: Replace these with your actual Supabase credentials
+  // Get these from: https://supabase.com/dashboard/project/YOUR_PROJECT/settings/api
+  // DO NOT commit real credentials to version control - use environment variables in production
+  var SUPABASE_URL = ""; // e.g., "https://xxxxx.supabase.co"
+  var SUPABASE_ANON_KEY = ""; // Your Supabase anon/public key
   
   // Initialize Supabase client
   var supabase = null;
   try {
-    if (typeof window.supabase !== 'undefined' && typeof window.supabase.createClient === 'function') {
+    if (SUPABASE_URL && SUPABASE_ANON_KEY && typeof window.supabase !== 'undefined' && typeof window.supabase.createClient === 'function') {
       supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     }
   } catch (e) {
@@ -816,26 +818,8 @@
         }, 2000);
       });
     } else {
-      // Fallback: Check local storage for existing user
-      var storedEmail = localStorage.getItem("fera-user-email");
-      var storedPassword = localStorage.getItem("fera-user-password");
-      
-      if (storedEmail === email && storedPassword === password) {
-        // Success!
-        document.querySelector(".signin-form").style.display = "none";
-        document.getElementById("success-section").style.display = "block";
-        document.getElementById("signin-info").style.display = "none";
-        
-        localStorage.setItem("fera-user-logged-in", "true");
-        updateUserUI(email);
-        
-        setTimeout(function() {
-          $signinBackdrop.style.display = "none";
-          resetSigninModal();
-        }, 2000);
-      } else {
-        alert("Invalid email or password. Please sign up first.");
-      }
+      // Fallback mode without Supabase - authentication disabled
+      alert("Supabase is not configured. Please configure Supabase credentials in app.js to enable authentication.\n\nSee SUPABASE_SETUP.md for instructions.");
     }
   });
 
@@ -856,7 +840,7 @@
       return;
     }
     
-    // Use Supabase if available, otherwise fallback to local storage
+    // Use Supabase if available
     if (supabase) {
       supabase.auth.signUp({
         email: email,
@@ -883,23 +867,8 @@
         alert("Verification email sent to " + email + ". Please check your inbox and enter the 6-digit code.");
       });
     } else {
-      // Fallback: Store user in local storage
-      localStorage.setItem("fera-user-email", email);
-      localStorage.setItem("fera-user-password", password);
-      localStorage.setItem("fera-user-logged-in", "true");
-      
-      document.querySelector(".signin-form").style.display = "none";
-      document.getElementById("success-section").style.display = "block";
-      document.getElementById("signin-info").style.display = "none";
-      
-      updateUserUI(email);
-      
-      alert("Account created successfully! (Note: Supabase not configured, using local storage)");
-      
-      setTimeout(function() {
-        $signinBackdrop.style.display = "none";
-        resetSigninModal();
-      }, 2000);
+      // Fallback mode without Supabase - authentication disabled
+      alert("Supabase is not configured. Please configure Supabase credentials in app.js to enable authentication.\n\nSee SUPABASE_SETUP.md for instructions.");
     }
   });
 
@@ -1030,32 +999,6 @@
       });
     } else {
       checkLocalLoginStatus();
-    }
-  }
-  
-  function checkLocalLoginStatus() {
-    var isLoggedIn = localStorage.getItem("fera-user-logged-in") === "true";
-    var userEmail = localStorage.getItem("fera-user-email");
-    if (isLoggedIn && userEmail) {
-      var signinBtn = document.getElementById("btn-signin");
-      signinBtn.innerHTML = "";
-      
-      var icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      icon.setAttribute("width", "16");
-      icon.setAttribute("height", "16");
-      icon.setAttribute("fill", "none");
-      icon.setAttribute("stroke", "currentColor");
-      icon.setAttribute("viewBox", "0 0 24 24");
-      var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("stroke-linecap", "round");
-      path.setAttribute("stroke-linejoin", "round");
-      path.setAttribute("stroke-width", "1.5");
-      path.setAttribute("d", "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z");
-      icon.appendChild(path);
-      signinBtn.appendChild(icon);
-      
-      var username = document.createTextNode(userEmail.split("@")[0]);
-      signinBtn.appendChild(username);
     }
   }
   

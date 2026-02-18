@@ -72,11 +72,13 @@ For production use, configure a custom SMTP server:
 
 ## Fallback Mode
 
-If Supabase is not configured, the app falls back to local storage mode:
-- User credentials are stored in browser's localStorage
-- No email verification
-- No cross-device sync
-- Suitable for development/testing only
+If Supabase is not configured (empty credentials in app.js):
+- Authentication features are disabled
+- Users will see an alert prompting them to configure Supabase
+- Search functionality continues to work without authentication
+- Local history still works when enabled
+
+**Important**: For security reasons, there is no localStorage-based authentication fallback. Supabase configuration is required for user authentication.
 
 ## Security Considerations
 
