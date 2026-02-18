@@ -3,11 +3,17 @@
 
   /* ===== Config ===== */
   var PROXY_BASE = "https://himanshu-711-fera-search-proxy.hf.space";
-  var VALID_CATEGORIES = ["video", "photo", "news"];
+  var VALID_CATEGORIES = ["all", "video", "photo", "news"];
   var CATEGORY_API_MAP = {
     "all": "general",
     "video": "videos",
     "photo": "images",
+    "news": "news"
+  };
+  var API_CATEGORY_UI_MAP = {
+    "general": "all",
+    "videos": "video",
+    "images": "photo",
     "news": "news"
   };
 
@@ -136,11 +142,10 @@
     // Update URL
     var url = new URL(window.location.href);
     url.searchParams.set("q", trimmed);
-    if (state.category && state.category !== "all") {
-      url.searchParams.set("category", state.category);
-    } else {
-      url.searchParams.delete("category");
-    }
+    var currentApiCategory = CATEGORY_API_MAP[state.category] || "general";
+    url.searchParams.set("safesearch", safeSearch ? "1" : "0");
+    url.searchParams.set("categories", currentApiCategory);
+    url.searchParams.delete("category");
     window.history.pushState({}, "", url.toString());
 
     renderResults();
@@ -813,11 +818,10 @@
 
       // Update URL with category
       var url = new URL(window.location.href);
-      if (category && category !== "all") {
-        url.searchParams.set("category", category);
-      } else {
-        url.searchParams.delete("category");
-      }
+      var apiCategory = CATEGORY_API_MAP[category] || "general";
+      url.searchParams.set("categories", apiCategory);
+      url.searchParams.set("safesearch", safeSearch ? "1" : "0");
+      url.searchParams.delete("category");
       window.history.replaceState({}, "", url.toString());
       
       // If there's a current search, re-run it with the new category
@@ -838,6 +842,16 @@
   var params = new URLSearchParams(window.location.search);
   var initialQ = params.get("q");
   var initialCategory = params.get("category");
+  var initialApiCategory = params.get("categories");
+  var initialSafeSearch = params.get("safesearch");
+  if (initialSafeSearch === "1" || initialSafeSearch === "0") {
+    safeSearch = initialSafeSearch === "1";
+    localStorage.setItem("fera-safesearch", safeSearch ? "on" : "off");
+    updateSafeSearchToggle();
+  }
+  if (!initialCategory && initialApiCategory && API_CATEGORY_UI_MAP[initialApiCategory]) {
+    initialCategory = API_CATEGORY_UI_MAP[initialApiCategory];
+  }
   if (initialCategory && VALID_CATEGORIES.indexOf(initialCategory) !== -1) {
     state.category = initialCategory;
     // Update category button active state
