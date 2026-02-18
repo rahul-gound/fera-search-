@@ -81,6 +81,7 @@
       document.getElementById("icon-sun").style.display = "none";
     }
     localStorage.setItem("fera-theme", theme);
+    syncToggleStates();
   }
   document.getElementById("btn-theme").addEventListener("click", function () {
     var isDark = document.body.classList.contains("dark");
@@ -165,7 +166,7 @@
 
     fetchSearch(trimmed, state.category, sCtrl.signal)
       .then(function (data) {
-        state.searchData = data;
+        state.searchData = normalizeSearchResponse(data);
         state.searchLoading = false;
         renderResults();
 
@@ -666,4 +667,348 @@
 
   function createSkeletonCard() {
     var card = document.createElement("div");
-    card.className
+    card.className = "skeleton-card";
+    var line1 = document.createElement("div");
+    line1.className = "skeleton sk";
+    line1.style.height = "12px";
+    line1.style.width = "30%";
+    var line2 = document.createElement("div");
+    line2.className = "skeleton sk";
+    line2.style.height = "18px";
+    line2.style.width = "70%";
+    var line3 = document.createElement("div");
+    line3.className = "skeleton sk";
+    line3.style.height = "14px";
+    line3.style.width = "100%";
+    var line4 = document.createElement("div");
+    line4.className = "skeleton sk";
+    line4.style.height = "14px";
+    line4.style.width = "90%";
+    card.appendChild(line1);
+    card.appendChild(line2);
+    card.appendChild(line3);
+    card.appendChild(line4);
+    return card;
+  }
+
+  /* ===== Render: AI ===== */
+  function renderAI() {
+    var targets = [$aiDesktop, $aiMobile];
+    targets.forEach(function ($target) {
+      if (!$target) return;
+      $target.innerHTML = "";
+
+      if (!state.query) {
+        $target.innerHTML = '<p class="ai-idle">Search to see an AI summary</p>';
+        return;
+      }
+
+      if (state.category !== "all") {
+        $target.innerHTML = '<p class="ai-idle">AI summary is only available in All.</p>';
+        return;
+      }
+
+      if (state.aiLoading) {
+        $target.innerHTML =
+          '<div class="ai-thinking"><div class="dot"></div><span>Thinking...</span></div>';
+        return;
+      }
+
+      if (state.aiError) {
+        var err = document.createElement("div");
+        err.innerHTML = '<p class="ai-error">' + escapeHtml(state.aiError) + "</p>";
+        var retry = document.createElement("button");
+        retry.className = "retry-link";
+        retry.textContent = "Retry";
+        retry.addEventListener("click", retryAI);
+        err.appendChild(retry);
+        $target.appendChild(err);
+        return;
+      }
+
+      var data = state.aiData && state.aiData.data ? state.aiData.data : {};
+      var summary =
+        data.summary || data.answer || data.text || data.response || data.content || "";
+      if (!summary) {
+        $target.innerHTML = '<p class="ai-idle">No AI summary available.</p>';
+        return;
+      }
+
+      var summaryEl = document.createElement("p");
+      summaryEl.className = "ai-summary-text";
+      summaryEl.textContent = summary;
+      $target.appendChild(summaryEl);
+    });
+  }
+
+  /* ===== Drawers ===== */
+  function openAiDrawer() {
+    if (!$aiDrawer || !$aiDrawerBackdrop) return;
+    aiDrawerOpen = true;
+    $aiDrawer.classList.add("open");
+    $aiDrawerBackdrop.style.display = "";
+  }
+  function closeAiDrawer() {
+    if (!$aiDrawer || !$aiDrawerBackdrop) return;
+    aiDrawerOpen = false;
+    $aiDrawer.classList.remove("open");
+    $aiDrawerBackdrop.style.display = "none";
+  }
+  function openHistoryDrawer() {
+    $historyDrawer.classList.add("open");
+    $historyBackdrop.style.display = "";
+  }
+  function closeHistoryDrawer() {
+    $historyDrawer.classList.remove("open");
+    $historyBackdrop.style.display = "none";
+  }
+  function openSettingsDrawer() {
+    $settingsDrawer.classList.add("open");
+    $settingsBackdrop.style.display = "";
+  }
+  function closeSettingsDrawer() {
+    $settingsDrawer.classList.remove("open");
+    $settingsBackdrop.style.display = "none";
+  }
+
+  /* ===== History ===== */
+  function getHistoryItems() {
+    try {
+      var raw = localStorage.getItem("fera-history-items");
+      return raw ? JSON.parse(raw) : [];
+    } catch (_) {
+      return [];
+    }
+  }
+  function setHistoryItems(items) {
+    localStorage.setItem("fera-history-items", JSON.stringify(items));
+  }
+  function addHistoryItem(item) {
+    if (!historyEnabled) return;
+    var items = getHistoryItems().filter(function (x) {
+      return x.query !== item.query;
+    });
+    items.unshift(item);
+    setHistoryItems(items.slice(0, 50));
+    renderHistory();
+  }
+  function renderHistory() {
+    if (!historyEnabled) {
+      $historyContent.innerHTML =
+        '<p class="text-muted text-xs">History is off. No searches are stored locally.</p>';
+      return;
+    }
+    var items = getHistoryItems();
+    if (!items.length) {
+      $historyContent.innerHTML = '<p class="text-muted text-xs">No history yet.</p>';
+      return;
+    }
+
+    $historyContent.innerHTML = "";
+    var clearBtn = document.createElement("button");
+    clearBtn.className = "history-clear";
+    clearBtn.textContent = "Clear history";
+    clearBtn.addEventListener("click", function () {
+      setHistoryItems([]);
+      renderHistory();
+    });
+    $historyContent.appendChild(clearBtn);
+
+    var list = document.createElement("div");
+    list.className = "history-list";
+    items.forEach(function (item) {
+      var btn = document.createElement("button");
+      btn.className = "history-item";
+      btn.innerHTML =
+        '<span class="hq">' +
+        escapeHtml(item.query) +
+        '</span><span class="ht">' +
+        new Date(item.time).toLocaleString() +
+        "</span>";
+      btn.addEventListener("click", function () {
+        closeHistoryDrawer();
+        doSearch(item.query);
+      });
+      list.appendChild(btn);
+    });
+    $historyContent.appendChild(list);
+  }
+
+  /* ===== Helpers ===== */
+  function setToggleState(el, on) {
+    if (!el) return;
+    el.classList.toggle("on", !!on);
+    el.setAttribute("aria-checked", on ? "true" : "false");
+  }
+  function syncToggleStates() {
+    setToggleState($safeSearchToggle, safeSearch);
+    setToggleState($settingsSafeSearchToggle, safeSearch);
+    setToggleState($historyToggleBtn, historyEnabled);
+    setToggleState($settingsHistoryToggle, historyEnabled);
+    setToggleState($settingsThemeToggle, document.body.classList.contains("dark"));
+  }
+  function normalizeSearchResponse(payload) {
+    if (Array.isArray(payload)) return { data: { results: payload } };
+    if (!payload || typeof payload !== "object") return { data: { results: [] } };
+    if (Array.isArray(payload.data)) return { data: { results: payload.data } };
+    if (Array.isArray(payload.results)) return { data: { results: payload.results } };
+    if (payload.data && typeof payload.data === "object" && Array.isArray(payload.data.results))
+      return payload;
+    if (payload.data && typeof payload.data === "object") {
+      var arr =
+        payload.data.items ||
+        payload.data.news ||
+        payload.data.videos ||
+        payload.data.images ||
+        [];
+      if (Array.isArray(arr)) {
+        payload.data.results = arr;
+        return payload;
+      }
+    }
+    payload.data = payload.data || {};
+    payload.data.results = [];
+    return payload;
+  }
+  function setCategory(category) {
+    var nextCategory = VALID_CATEGORIES.indexOf(category) >= 0 ? category : "all";
+    state.category = nextCategory;
+    var buttons = document.querySelectorAll(".category-btn");
+    Array.prototype.forEach.call(buttons, function (btn) {
+      btn.classList.toggle("active", btn.dataset.category === state.category);
+    });
+  }
+  function getDomain(url) {
+    try {
+      return new URL(url).hostname.replace(/^www\./, "");
+    } catch (_) {
+      return "";
+    }
+  }
+  function normalizeMediaUrl(url) {
+    if (!url || typeof url !== "string") return null;
+    if (/^\/\//.test(url)) return "https:" + url;
+    if (/^https?:\/\//i.test(url) || /^data:/i.test(url)) return url;
+    return null;
+  }
+  function engineBadgeClass(name) {
+    var key = String(name || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "");
+    return (
+      {
+        google: "badge-google",
+        brave: "badge-brave",
+        duckduckgo: "badge-duckduckgo",
+        startpage: "badge-startpage",
+        bing: "badge-bing",
+        wikipedia: "badge-wikipedia",
+      }[key] || "badge-default"
+    );
+  }
+  function escapeHtml(str) {
+    return String(str || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  /* ===== Events ===== */
+  $searchForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    doSearch($searchInput.value);
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".category-btn"), function (btn) {
+    btn.addEventListener("click", function () {
+      setCategory(btn.dataset.category);
+      if (state.query) doSearch(state.query);
+      else {
+        var u = new URL(window.location.href);
+        u.searchParams.set("categories", CATEGORY_API_MAP[state.category] || "general");
+        u.searchParams.delete("category");
+        window.history.replaceState({}, "", u.toString());
+      }
+    });
+  });
+
+  function toggleSafeSearch() {
+    safeSearch = !safeSearch;
+    localStorage.setItem("fera-safesearch", safeSearch ? "on" : "off");
+    syncToggleStates();
+    if (state.query) doSearch(state.query);
+  }
+  function toggleHistoryEnabled() {
+    historyEnabled = !historyEnabled;
+    localStorage.setItem("fera-history", historyEnabled ? "on" : "off");
+    if (!historyEnabled) setHistoryItems([]);
+    syncToggleStates();
+    renderHistory();
+  }
+  function toggleTheme() {
+    applyTheme(document.body.classList.contains("dark") ? "light" : "dark");
+  }
+
+  $safeSearchToggle.addEventListener("click", toggleSafeSearch);
+  $settingsSafeSearchToggle.addEventListener("click", toggleSafeSearch);
+  $historyToggleBtn.addEventListener("click", toggleHistoryEnabled);
+  $settingsHistoryToggle.addEventListener("click", toggleHistoryEnabled);
+  $settingsThemeToggle.addEventListener("click", toggleTheme);
+
+  document.getElementById("btn-history").addEventListener("click", openHistoryDrawer);
+  document.getElementById("btn-history-close").addEventListener("click", closeHistoryDrawer);
+  $historyBackdrop.addEventListener("click", closeHistoryDrawer);
+
+  document.getElementById("btn-settings").addEventListener("click", openSettingsDrawer);
+  document.getElementById("btn-settings-close").addEventListener("click", closeSettingsDrawer);
+  $settingsBackdrop.addEventListener("click", closeSettingsDrawer);
+
+  document.getElementById("btn-mobile-ai").addEventListener("click", function () {
+    if (aiDrawerOpen) closeAiDrawer();
+    else openAiDrawer();
+  });
+  $aiDrawerBackdrop.addEventListener("click", closeAiDrawer);
+
+  window.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") {
+      closeAiDrawer();
+      closeHistoryDrawer();
+      closeSettingsDrawer();
+    }
+  });
+
+  /* ===== Init from URL ===== */
+  function initFromURL() {
+    var params = new URLSearchParams(window.location.search);
+    var q = (params.get("q") || "").trim();
+    var safe = params.get("safesearch");
+    var apiCategory = params.get("categories");
+    var uiCategory = params.get("category");
+
+    if (safe === "0" || safe === "1") {
+      safeSearch = safe === "1";
+      localStorage.setItem("fera-safesearch", safeSearch ? "on" : "off");
+    }
+
+    var resolvedCategory = "all";
+    if (apiCategory && API_CATEGORY_UI_MAP[apiCategory]) resolvedCategory = API_CATEGORY_UI_MAP[apiCategory];
+    else if (uiCategory && VALID_CATEGORIES.indexOf(uiCategory) >= 0) resolvedCategory = uiCategory;
+
+    setCategory(resolvedCategory);
+    renderHistory();
+    syncToggleStates();
+
+    if (q) {
+      $searchInput.value = q;
+      doSearch(q);
+    } else {
+      renderResults();
+      renderAI();
+    }
+  }
+
+  window.addEventListener("popstate", initFromURL);
+  initFromURL();
+})();
