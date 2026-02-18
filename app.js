@@ -122,17 +122,38 @@
   }
 
   function fetchSummarize(query, signal) {
-    return fetch(PROXY_BASE + "/summarize?q=" + encodeURIComponent(query), {
+    var url =
+      PROXY_BASE +
+      "/summarize" +
+      "?q=" + encodeURIComponent(query) +
+      "&safesearch=" + (safeSearch ? "1" : "0") +
+      "&categories=general";
+
+    return fetch(url, {
       signal: signal,
+      mode: "cors",
     }).then(function (res) {
-      if (!res.ok) throw new Error("Summarize failed (" + res.status + ")");
+      if (!res.ok) {
+        return res.text().then(function (body) {
+          throw new Error(
+            "Summarize failed (HTTP " + res.status + "): " + body.slice(0, 200)
+          );
+        });
+      }
       return res.text().then(function (text) {
         try {
           return JSON.parse(text);
         } catch (_) {
-          return { summary: text };
+          if (!text || !text.trim()) {
+            throw new Error("Summarize returned empty response");
+          }
+          return { summary: text.trim() };
         }
       });
+    }).catch(function (err) {
+      if (err.name === "AbortError") throw err;
+      if (err.message && err.message.indexOf("Summarize") === 0) throw err;
+      throw new Error("Summarize request failed: " + (err.message || "Network error"));
     });
   }
 
@@ -717,9 +738,15 @@
         return;
       }
 
-      var nested = state.aiData && state.aiData.data ? state.aiData.data : {};
+      // Resolve the AI data from multiple possible response shapes:
+      // { ai: { summary, key_points, best_sources, follow_up_queries } }
+      // { data: { summary } }
+      // { summary }
       var top = state.aiData || {};
+      var ai = top.ai || {};
+      var nested = top.data || {};
       var summary =
+        ai.summary || ai.answer || ai.text || ai.response || ai.content ||
         nested.summary || nested.answer || nested.text || nested.response || nested.content ||
         top.summary || top.answer || top.text || top.response || top.content || "";
       if (typeof summary !== "string") summary = String(summary);
@@ -729,10 +756,78 @@
         return;
       }
 
+      var keyPoints = ai.key_points || nested.key_points || top.key_points || [];
+      var bestSources = ai.best_sources || nested.best_sources || top.best_sources || [];
+      var followUp = ai.follow_up_queries || nested.follow_up_queries || top.follow_up_queries || [];
+      if (!Array.isArray(keyPoints)) keyPoints = [];
+      if (!Array.isArray(bestSources)) bestSources = [];
+      if (!Array.isArray(followUp)) followUp = [];
+
       var summaryEl = document.createElement("p");
       summaryEl.className = "ai-summary-text";
       summaryEl.textContent = summary;
       $target.appendChild(summaryEl);
+
+      // Key points
+      if (keyPoints.length > 0) {
+        var kpLabel = document.createElement("p");
+        kpLabel.className = "ai-section-label";
+        kpLabel.textContent = "Key Points";
+        $target.appendChild(kpLabel);
+        var kpContainer = document.createElement("div");
+        kpContainer.className = "ai-chips";
+        keyPoints.forEach(function (point) {
+          var chip = document.createElement("span");
+          chip.className = "ai-chip";
+          chip.textContent = typeof point === "string" ? point : String(point);
+          kpContainer.appendChild(chip);
+        });
+        $target.appendChild(kpContainer);
+      }
+
+      // Best sources
+      if (bestSources.length > 0) {
+        var srcLabel = document.createElement("p");
+        srcLabel.className = "ai-section-label";
+        srcLabel.textContent = "Sources";
+        $target.appendChild(srcLabel);
+        var srcList = document.createElement("ul");
+        srcList.className = "ai-sources";
+        bestSources.forEach(function (src) {
+          var isObj = typeof src === "object" && src !== null;
+          var li = document.createElement("li");
+          var a = document.createElement("a");
+          a.href = (isObj ? src.url : src) || "#";
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          a.textContent = (isObj ? (src.title || src.url || src.name) : src) || "Source";
+          li.appendChild(a);
+          srcList.appendChild(li);
+        });
+        $target.appendChild(srcList);
+      }
+
+      // Follow-up queries
+      if (followUp.length > 0) {
+        var fuLabel = document.createElement("p");
+        fuLabel.className = "ai-section-label";
+        fuLabel.textContent = "Related Searches";
+        $target.appendChild(fuLabel);
+        var fuContainer = document.createElement("div");
+        fuContainer.className = "ai-chips";
+        followUp.forEach(function (q) {
+          var text = typeof q === "string" ? q : String(q);
+          var chip = document.createElement("button");
+          chip.className = "ai-followup-chip";
+          chip.textContent = text;
+          chip.addEventListener("click", function () {
+            $searchInput.value = text;
+            doSearch(text);
+          });
+          fuContainer.appendChild(chip);
+        });
+        $target.appendChild(fuContainer);
+      }
     });
   }
 
