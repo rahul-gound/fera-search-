@@ -5,16 +5,16 @@
   var PROXY_BASE = "https://himanshu-711-fera-search-proxy.hf.space";
   var VALID_CATEGORIES = ["all", "video", "photo", "news"];
   var CATEGORY_API_MAP = {
-    "all": "general",
-    "video": "videos",
-    "photo": "images",
-    "news": "news"
+    all: "general",
+    video: "videos",
+    photo: "images",
+    news: "news",
   };
   var API_CATEGORY_UI_MAP = {
-    "general": "all",
-    "videos": "video",
-    "images": "photo",
-    "news": "news"
+    general: "all",
+    videos: "video",
+    images: "photo",
+    news: "news",
   };
 
   /* ===== State ===== */
@@ -59,7 +59,9 @@
   /* ===== Theme ===== */
   function initTheme() {
     var saved = localStorage.getItem("fera-theme");
-    var theme = saved || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    var theme =
+      saved ||
+      (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
     applyTheme(theme);
   }
   function applyTheme(theme) {
@@ -99,19 +101,19 @@
     url += "&format=json&safesearch=" + (safeSearch ? "1" : "0");
     var apiCategory = CATEGORY_API_MAP[category] || "general";
     url += "&categories=" + encodeURIComponent(apiCategory);
-    
-    return fetch(url, { signal: signal })
-      .then(function (res) {
-        if (!res.ok) throw new Error("Search failed (" + res.status + ")");
-        return res.json();
-      });
+
+    return fetch(url, { signal: signal }).then(function (res) {
+      if (!res.ok) throw new Error("Search failed (" + res.status + ")");
+      return res.json();
+    });
   }
   function fetchSummarize(query, signal) {
-    return fetch(PROXY_BASE + "/summarize?q=" + encodeURIComponent(query), { signal: signal })
-      .then(function (res) {
-        if (!res.ok) throw new Error("Summarize failed (" + res.status + ")");
-        return res.json();
-      });
+    return fetch(PROXY_BASE + "/summarize?q=" + encodeURIComponent(query), {
+      signal: signal,
+    }).then(function (res) {
+      if (!res.ok) throw new Error("Summarize failed (" + res.status + ")");
+      return res.json();
+    });
   }
 
   /* ===== Search ===== */
@@ -134,7 +136,7 @@
     state.searchError = null;
     state.aiData = null;
     // Only enable AI loading for "all" category
-    state.aiLoading = (state.category === "all");
+    state.aiLoading = state.category === "all";
     state.aiError = null;
 
     $searchInput.value = trimmed;
@@ -240,9 +242,14 @@
 
     if (!hasQuery) return;
 
-    var results = (state.searchData && state.searchData.data && state.searchData.data.results) || [];
-    var infoboxes = (state.searchData && state.searchData.data && state.searchData.data.infoboxes) || [];
-    var suggestions = (state.searchData && state.searchData.data && state.searchData.data.suggestions) || [];
+    var results =
+      (state.searchData && state.searchData.data && state.searchData.data.results) || [];
+    var infoboxes =
+      (state.searchData && state.searchData.data && state.searchData.data.infoboxes) ||
+      [];
+    var suggestions =
+      (state.searchData && state.searchData.data && state.searchData.data.suggestions) ||
+      [];
 
     // Infoboxes
     infoboxes.forEach(function (ib) {
@@ -269,17 +276,30 @@
     if (state.searchError) {
       var errDiv = document.createElement("div");
       errDiv.className = "error-card";
-      errDiv.innerHTML = '<p>Something went wrong. Please try again.</p>';
+      errDiv.innerHTML = "<p>Something went wrong. Please try again.</p>";
       var retryBtn = document.createElement("button");
       retryBtn.className = "retry-link";
       retryBtn.textContent = "Retry";
-      retryBtn.addEventListener("click", function () { doSearch(state.query); });
+      retryBtn.addEventListener("click", function () {
+        doSearch(state.query);
+      });
       errDiv.appendChild(retryBtn);
       $resultsPanel.appendChild(errDiv);
       return;
     }
 
-    // Results
+    // ✅ PHOTO GRID (NEW)
+    if (state.category === "photo" && results.length > 0) {
+      var grid = document.createElement("div");
+      grid.className = "image-grid";
+      results.forEach(function (r) {
+        grid.appendChild(createImageTile(r));
+      });
+      $resultsPanel.appendChild(grid);
+      return;
+    }
+
+    // Results (default list)
     if (results.length > 0) {
       var list = document.createElement("div");
       list.className = "results-list";
@@ -294,7 +314,8 @@
     if (state.searchData) {
       var empty = document.createElement("div");
       empty.className = "empty-card";
-      empty.innerHTML = '<p>No results found for "' + escapeHtml(state.query) + '"</p>';
+      empty.innerHTML =
+        '<p>No results found for "' + escapeHtml(state.query) + '"</p>';
       $resultsPanel.appendChild(empty);
     }
   }
@@ -348,20 +369,56 @@
 
     inner.appendChild(body);
 
-    // Thumbnail
-    var thumbUrl = r.thumbnail || r.img_src;
+    // ✅ Thumbnail (FIXED: supports thumbnail_src + no-referrer + http→https)
+    var thumbUrl =
+      r.thumbnail ||
+      r.thumbnail_src ||
+      r.img_src ||
+      r.image ||
+      (r.thumbnail_url ? r.thumbnail_url : null);
+
+    thumbUrl = normalizeMediaUrl(thumbUrl);
+
     if (thumbUrl) {
       var img = document.createElement("img");
       img.className = "result-thumb";
       img.src = thumbUrl;
       img.alt = "";
       img.loading = "lazy";
-      img.onerror = function () { img.style.display = "none"; };
+      img.referrerPolicy = "no-referrer";
+      img.onerror = function () {
+        img.style.display = "none";
+      };
       inner.appendChild(img);
     }
 
     card.appendChild(inner);
     return card;
+  }
+
+  // ✅ NEW: Image tile renderer for Photo category
+  function createImageTile(r) {
+    var a = document.createElement("a");
+    a.className = "image-tile";
+
+    var full = normalizeMediaUrl(r.img_src || r.url);
+    var thumb = normalizeMediaUrl(r.thumbnail_src || r.thumbnail || r.img_src);
+
+    a.href = full || r.url;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+
+    var img = document.createElement("img");
+    img.src = thumb || full || "";
+    img.loading = "lazy";
+    img.alt = r.title || "";
+    img.referrerPolicy = "no-referrer";
+    img.onerror = function () {
+      a.style.display = "none";
+    };
+
+    a.appendChild(img);
+    return a;
   }
 
   function createInfobox(ib) {
@@ -374,9 +431,12 @@
     if (ib.img_src) {
       var img = document.createElement("img");
       img.className = "infobox-img";
-      img.src = ib.img_src;
+      img.src = normalizeMediaUrl(ib.img_src);
       img.alt = ib.infobox || "";
-      img.onerror = function () { img.style.display = "none"; };
+      img.referrerPolicy = "no-referrer";
+      img.onerror = function () {
+        img.style.display = "none";
+      };
       inner.appendChild(img);
     }
 
@@ -421,7 +481,9 @@
       var btn = document.createElement("button");
       btn.className = "suggestion-chip";
       btn.textContent = s;
-      btn.addEventListener("click", function () { doSearch(s); });
+      btn.addEventListener("click", function () {
+        doSearch(s);
+      });
       wrap.appendChild(btn);
     });
     return wrap;
@@ -465,7 +527,8 @@
     }
 
     if (state.aiLoading) {
-      return '<div class="ai-thinking"><div class="dot"></div><span>Thinking…</span></div>' +
+      return (
+        '<div class="ai-thinking"><div class="dot"></div><span>Thinking…</span></div>' +
         '<div class="skeleton" style="height:16px;width:100%;margin-bottom:12px"></div>' +
         '<div class="skeleton" style="height:16px;width:83%;margin-bottom:12px"></div>' +
         '<div class="skeleton" style="height:16px;width:66%;margin-bottom:12px"></div>' +
@@ -475,47 +538,60 @@
         '<div class="skeleton" style="height:28px;width:80px;border-radius:9999px"></div>' +
         '<div class="skeleton" style="height:28px;width:96px;border-radius:9999px"></div>' +
         '<div class="skeleton" style="height:28px;width:64px;border-radius:9999px"></div>' +
-        '</div>';
+        "</div>"
+      );
     }
 
     if (state.aiError) {
-      return '<p class="ai-error">AI not available</p>' +
-        '<button class="retry-link" data-ai-retry>Retry</button>';
+      return (
+        '<p class="ai-error">AI not available</p>' +
+        '<button class="retry-link" data-ai-retry>Retry</button>'
+      );
     }
 
     if (state.aiData && state.aiData.ai) {
       var ai = state.aiData.ai;
-      var h = '';
+      var h = "";
 
       // Summary
-      h += '<div class="ai-summary-text">' + escapeHtml(ai.summary || "") + '</div>';
+      h += '<div class="ai-summary-text">' + escapeHtml(ai.summary || "") + "</div>";
 
       // Key points
       if (ai.key_points && ai.key_points.length > 0) {
         h += '<p class="ai-section-label">Key Points</p><div class="ai-chips">';
         ai.key_points.forEach(function (kp) {
-          h += '<span class="ai-chip">' + escapeHtml(kp) + '</span>';
+          h += '<span class="ai-chip">' + escapeHtml(kp) + "</span>";
         });
-        h += '</div>';
+        h += "</div>";
       }
 
       // Best sources
       if (ai.best_sources && ai.best_sources.length > 0) {
         h += '<p class="ai-section-label">Best Sources</p><ul class="ai-sources">';
         ai.best_sources.forEach(function (src) {
-          h += '<li><a href="' + escapeAttr(src.url) + '" target="_blank" rel="noopener noreferrer">' +
-            escapeHtml(src.title || src.url) + '</a></li>';
+          h +=
+            '<li><a href="' +
+            escapeAttr(src.url) +
+            '" target="_blank" rel="noopener noreferrer">' +
+            escapeHtml(src.title || src.url) +
+            "</a></li>";
         });
-        h += '</ul>';
+        h += "</ul>";
       }
 
       // Follow-up queries
       if (ai.follow_up_queries && ai.follow_up_queries.length > 0) {
-        h += '<p class="ai-section-label">Related Searches</p><div class="ai-chips">';
+        h +=
+          '<p class="ai-section-label">Related Searches</p><div class="ai-chips">';
         ai.follow_up_queries.forEach(function (q) {
-          h += '<button class="ai-followup-chip" data-followup="' + escapeAttr(q) + '">' + escapeHtml(q) + '</button>';
+          h +=
+            '<button class="ai-followup-chip" data-followup="' +
+            escapeAttr(q) +
+            '">' +
+            escapeHtml(q) +
+            "</button>";
         });
-        h += '</div>';
+        h += "</div>";
       }
 
       h += '<p class="ai-privacy">Generated from top results (no personal tracking)</p>';
@@ -575,8 +651,12 @@
           store.createIndex("time", "time");
         }
       };
-      req.onsuccess = function (e) { resolve(e.target.result); };
-      req.onerror = function (e) { reject(e.target.error); };
+      req.onsuccess = function (e) {
+        resolve(e.target.result);
+      };
+      req.onerror = function (e) {
+        reject(e.target.error);
+      };
     });
   }
 
@@ -602,7 +682,9 @@
                 var toDelete = all.slice(0, all.length - MAX_ITEMS);
                 var tx3 = db.transaction(STORE, "readwrite");
                 var store3 = tx3.objectStore(STORE);
-                toDelete.forEach(function (old) { store3.delete(old.id); });
+                toDelete.forEach(function (old) {
+                  store3.delete(old.id);
+                });
                 tx3.oncomplete = resolve;
                 tx3.onerror = reject;
               } else {
@@ -611,7 +693,9 @@
             }
           };
         };
-        tx.onerror = function () { reject(tx.error); };
+        tx.onerror = function () {
+          reject(tx.error);
+        };
       });
     });
   }
@@ -631,7 +715,9 @@
             resolve(all.reverse());
           }
         };
-        tx.onerror = function () { reject(tx.error); };
+        tx.onerror = function () {
+          reject(tx.error);
+        };
       });
     });
   }
@@ -642,7 +728,9 @@
         var tx = db.transaction(STORE, "readwrite");
         tx.objectStore(STORE).clear();
         tx.oncomplete = resolve;
-        tx.onerror = function () { reject(tx.error); };
+        tx.onerror = function () {
+          reject(tx.error);
+        };
       });
     });
   }
@@ -659,7 +747,8 @@
   }
   function renderHistoryContent() {
     if (!historyEnabled) {
-      $historyContent.innerHTML = '<p class="text-muted text-xs">History is off. No searches are stored locally.</p>';
+      $historyContent.innerHTML =
+        '<p class="text-muted text-xs">History is off. No searches are stored locally.</p>';
       return;
     }
     getHistory().then(function (items) {
@@ -667,19 +756,29 @@
         $historyContent.innerHTML = '<p class="text-muted text-sm">No history yet.</p>';
         return;
       }
-      var h = '<button class="history-clear" id="btn-clear-history">Clear all</button><ul class="history-list">';
+      var h =
+        '<button class="history-clear" id="btn-clear-history">Clear all</button><ul class="history-list">';
       items.forEach(function (item) {
-        h += '<li><button class="history-item" data-hquery="' + escapeAttr(item.query) + '">' +
-          '<span class="hq">' + escapeHtml(item.query) + '</span>' +
-          '<span class="ht">' + new Date(item.time).toLocaleString() + '</span>' +
-          '</button></li>';
+        h +=
+          '<li><button class="history-item" data-hquery="' +
+          escapeAttr(item.query) +
+          '">' +
+          '<span class="hq">' +
+          escapeHtml(item.query) +
+          "</span>" +
+          '<span class="ht">' +
+          new Date(item.time).toLocaleString() +
+          "</span>" +
+          "</button></li>";
       });
-      h += '</ul>';
+      h += "</ul>";
       $historyContent.innerHTML = h;
 
       // Wire events
       document.getElementById("btn-clear-history").addEventListener("click", function () {
-        clearHistory().then(function () { renderHistoryContent(); });
+        clearHistory().then(function () {
+          renderHistoryContent();
+        });
       });
       $historyContent.querySelectorAll("[data-hquery]").forEach(function (btn) {
         btn.addEventListener("click", function () {
@@ -805,14 +904,16 @@
 
   /* ===== Category filters ===== */
   var categoryBtns = document.querySelectorAll(".category-btn");
-  categoryBtns.forEach(function(btn) {
-    btn.addEventListener("click", function() {
+  categoryBtns.forEach(function (btn) {
+    btn.addEventListener("click", function () {
       var category = btn.getAttribute("data-category");
-      
+
       // Update active state
-      categoryBtns.forEach(function(b) { b.classList.remove("active"); });
+      categoryBtns.forEach(function (b) {
+        b.classList.remove("active");
+      });
       btn.classList.add("active");
-      
+
       // Update state
       state.category = category;
 
@@ -823,7 +924,7 @@
       url.searchParams.set("safesearch", safeSearch ? "1" : "0");
       url.searchParams.delete("category");
       window.history.replaceState({}, "", url.toString());
-      
+
       // If there's a current search, re-run it with the new category
       if (state.query) {
         doSearch(state.query);
@@ -855,7 +956,7 @@
   if (initialCategory && VALID_CATEGORIES.indexOf(initialCategory) !== -1) {
     state.category = initialCategory;
     // Update category button active state
-    categoryBtns.forEach(function(b) {
+    categoryBtns.forEach(function (b) {
       b.classList.toggle("active", b.getAttribute("data-category") === initialCategory);
     });
   }
@@ -891,6 +992,20 @@
   }
 
   function escapeAttr(str) {
-    return str.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  // ✅ NEW: Helps mixed-content + some CDN weirdness
+  function normalizeMediaUrl(u) {
+    if (!u) return u;
+    if (typeof u !== "string") return u;
+    if (u.startsWith("//")) u = "https:" + u;
+    if (u.startsWith("http://")) u = "https://" + u.slice("http://".length);
+    return u;
   }
 })();
