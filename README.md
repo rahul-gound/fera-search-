@@ -104,6 +104,9 @@ If you want to support this project or help us improve it, contact:
 
 ---
 
-## 📄 License
+## if you like give us a star
 
-Open-source. Use, modify, and learn from it.
+
+## Thank you
+
+
