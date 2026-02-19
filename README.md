@@ -1,67 +1,109 @@
-# Fera Search
+# 🚀 Fera-Search  
+**Privacy-First AI Meta Search Engine**
 
-A premium, privacy-first metasearch web app with AI-powered summaries.
-Built with plain **HTML, CSS, and JavaScript** — no build tools, no frameworks.
+🔎 Use Fera-Search online:  
+👉 https://search.fera-search.tech/
 
-## Features
+---
 
-- **Privacy-first** — No personal tracking, all history stored locally (opt-in)
-- **User Authentication** — Sign up/Sign in with email and password using Supabase
-- **AI Summaries** — Get AI-generated summaries for "All" category searches only
-- **Category Filtering** — Search across All, Video, Photo, and News categories
-- **Dark mode** — System default with manual toggle
-- **Keyboard shortcuts** — Press `/` to focus search
-- **Responsive** — Desktop two-panel layout, mobile with collapsible AI drawer
-- **Fast** — Search results load first, AI follows asynchronously
-- **Static** — Just HTML, CSS, JS — open `index.html` in any browser
+## 🌿 What is Fera-Search?
 
-## Getting Started
+Fera-Search is a privacy-focused meta search engine that combines results from multiple upstream engines and adds AI summaries, without requiring user accounts or building tracking profiles.
 
-No build step required. Just open `index.html` in your browser, or serve it with any static file server:
+Built for:
+- ⚡ Speed
+- 🔒 Privacy
+- 🧠 Useful AI summaries
+- 🧩 Simple, modular architecture
 
-```bash
-# Using Python
-python3 -m http.server 8000
+---
 
-# Using Node.js
-npx serve .
+## ✨ Features
 
-# Or just double-click index.html
-```
+- Meta search (aggregates results from multiple engines)
+- Categories: **General / Images / Videos / News**
+- SafeSearch toggle
+- AI summary panel (non-blocking)
+- Mobile-friendly UI + dark mode
+- Optional **local history** (stored only in your browser)
 
-## Project Structure
+---
 
-```
-├── index.html     # Main HTML with all markup
-├── style.css      # All styles (dark mode, responsive, animations)
-├── app.js         # All JavaScript logic (search, AI, history, theme)
-└── README.md
-```
+## 🔐 Privacy
 
-## API
+Fera-Search is designed to reduce tracking:
+- No login required
+- No forced user identity
+- Search history is **optional** and stored locally in your browser (if enabled)
+- AI summary is generated only from top search results (no personal data)
 
-Uses the Fera Search proxy backend:
+---
 
-- `GET /search?q=QUERY&format=json&safesearch=1&categories=CATEGORY` — Search results (fast)
-  - `categories` can be: `images`, `videos`, `news`, or omitted for general search
-- `GET /summarize?q=QUERY` — AI summary (slower, non-blocking, only for "All" category)
+## 🌍 How to Use (Online)
 
-## Authentication
+Open:
+👉 https://search.fera-search.tech/
 
-The app supports user authentication via Supabase:
+Search normally using the UI.
 
-- **Sign Up**: Create account with email and password (email verification required)
-- **Sign In**: Login with existing credentials
-- **Session Management**: Persists across page reloads
+### Category behavior (what the backend expects)
 
-See [SUPABASE_SETUP.md](SUPABASE_SETUP.md) for configuration instructions.
+Fera proxy endpoint format:
 
-**Note**: Authentication is optional. All search functionality works without an account. Sign in only to sync history across devices.
+- **General**
+  `.../search?q=hi&safesearch=1&categories=general`
 
-## Deploy
+- **Images**
+  `.../search?q=hi&safesearch=1&categories=images`
 
-Upload `index.html`, `style.css`, and `app.js` to any static hosting:
-- GitHub Pages
-- Netlify
-- Vercel
-- Any web server
+- **Videos**
+  `.../search?q=hi&safesearch=1&categories=videos`
+
+- **News**
+  `.../search?q=hi&safesearch=1&categories=news`
+
+AI summary endpoint format:
+
+- **AI Summary (General only)**
+  `.../summarize?q=hi&safesearch=1&categories=general`
+
+---
+
+## 🧠 Frontend Logic (Important)
+
+The UI works best when:
+1. Call `/search` first to show results instantly  
+2. Then call `/summarize` to fetch AI summary (without blocking the results)
+
+This keeps the app fast and smooth.
+
+---
+
+## 🧩 Frontend Help Wanted (Contributions)
+
+We are actively improving the frontend UI/UX.
+
+If you can help with:
+- fixing category rendering (news/video/image)
+- better result cards
+- performance improvements
+- UI polish + responsiveness
+- bug fixes
+
+Please reach out or open a PR/issues. ❤️
+
+---
+
+## 💛 Support / Donation / Contact
+
+If you want to support this project or help us improve it, contact:
+
+📩 **singantima203@gmail.com**
+
+(Help with frontend contributions is highly appreciated.)
+
+---
+
+## 📄 License
+
+Open-source. Use, modify, and learn from it.
