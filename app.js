@@ -61,6 +61,9 @@
   var $settingsSafeSearchToggle = document.getElementById("settings-safesearch-toggle");
   var $settingsThemeToggle = document.getElementById("settings-theme-toggle");
   var $settingsHistoryToggle = document.getElementById("settings-history-toggle");
+  var $announcementDrawer = document.getElementById("announcement-drawer");
+  var $announcementBackdrop = document.getElementById("announcement-backdrop");
+  var $announcementDot = document.getElementById("announcement-dot");
 
   /* ===== Theme ===== */
   function initTheme() {
@@ -894,6 +897,62 @@
     $settingsDrawer.classList.remove("open");
     $settingsBackdrop.style.display = "none";
   }
+  function openAnnouncementDrawer() {
+    $announcementDrawer.classList.add("open");
+    $announcementBackdrop.style.display = "";
+    // Hide the red dot once viewed
+    if ($announcementDot) $announcementDot.style.display = "none";
+    localStorage.setItem("fera-announcement-seen", "1");
+    initPoll();
+  }
+  function closeAnnouncementDrawer() {
+    $announcementDrawer.classList.remove("open");
+    $announcementBackdrop.style.display = "none";
+  }
+  function initPoll() {
+    var vote = localStorage.getItem("fera-poll-login");
+    var $options = document.getElementById("poll-options");
+    var $result = document.getElementById("poll-result");
+    var $yesBtn = document.getElementById("poll-yes");
+    var $noBtn = document.getElementById("poll-no");
+    if (!$options || !$result || !$yesBtn || !$noBtn) return;
+    if (vote) {
+      applyPollVote(vote, $yesBtn, $noBtn, $result);
+    } else {
+      $yesBtn.disabled = false;
+      $noBtn.disabled = false;
+      $yesBtn.className = "poll-btn";
+      $noBtn.className = "poll-btn";
+      $result.style.display = "none";
+      function onYes() {
+        localStorage.setItem("fera-poll-login", "yes");
+        applyPollVote("yes", $yesBtn, $noBtn, $result);
+        $yesBtn.removeEventListener("click", onYes);
+        $noBtn.removeEventListener("click", onNo);
+      }
+      function onNo() {
+        localStorage.setItem("fera-poll-login", "no");
+        applyPollVote("no", $yesBtn, $noBtn, $result);
+        $yesBtn.removeEventListener("click", onYes);
+        $noBtn.removeEventListener("click", onNo);
+      }
+      $yesBtn.addEventListener("click", onYes);
+      $noBtn.addEventListener("click", onNo);
+    }
+  }
+  function applyPollVote(vote, $yesBtn, $noBtn, $result) {
+    $yesBtn.disabled = true;
+    $noBtn.disabled = true;
+    if (vote === "yes") {
+      $yesBtn.className = "poll-btn voted-yes";
+      $noBtn.className = "poll-btn";
+    } else {
+      $yesBtn.className = "poll-btn";
+      $noBtn.className = "poll-btn voted-no";
+    }
+    $result.textContent = "You voted: " + (vote === "yes" ? "Yes 👍" : "No 👎") + " — thanks for your feedback!";
+    $result.style.display = "";
+  }
 
   /* ===== History ===== */
   function getHistoryItems() {
@@ -1089,6 +1148,10 @@
   document.getElementById("btn-settings-close").addEventListener("click", closeSettingsDrawer);
   $settingsBackdrop.addEventListener("click", closeSettingsDrawer);
 
+  document.getElementById("btn-announcement").addEventListener("click", openAnnouncementDrawer);
+  document.getElementById("btn-announcement-close").addEventListener("click", closeAnnouncementDrawer);
+  $announcementBackdrop.addEventListener("click", closeAnnouncementDrawer);
+
   document.getElementById("btn-mobile-ai").addEventListener("click", function () {
     if (aiDrawerOpen) closeAiDrawer();
     else openAiDrawer();
@@ -1100,6 +1163,7 @@
       closeAiDrawer();
       closeHistoryDrawer();
       closeSettingsDrawer();
+      closeAnnouncementDrawer();
     }
   });
 
@@ -1123,6 +1187,11 @@
     setCategory(resolvedCategory);
     renderHistory();
     syncToggleStates();
+
+    // Show announcement dot if not yet seen
+    if ($announcementDot) {
+      $announcementDot.style.display = localStorage.getItem("fera-announcement-seen") ? "none" : "";
+    }
 
     if (q) {
       $searchInput.value = q;
