@@ -499,3 +499,11 @@ body.dark .news-snippet { color: #9ca3af; }
   background: #f3f4f6;
 }
 body.dark .news-thumb { background: #1f2937; }
+
+/* ===== Feedback footer ===== */
+.feedback-footer { text-align: center; padding: 16px; border-top: 1px solid #f3f4f6; margin-top: auto; }
+body.dark .feedback-footer { border-top-color: #1f2937; }
+.feedback-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: #2563eb; transition: color 0.15s; }
+body.dark .feedback-link { color: #60a5fa; }
+.feedback-link:hover { color: #1d4ed8; text-decoration: underline; text-underline-offset: 2px; }
+body.dark .feedback-link:hover { color: #93c5fd; }
